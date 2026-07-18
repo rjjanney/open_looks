@@ -44,11 +44,14 @@ jobs:
       # PyGObject (pywebview's Linux backend) links against WebKit2GTK at
       # runtime -- these are system libraries, not something pip can
       # install, so they have to go on via apt before `pip install` runs.
+      # libcairo2-dev + pkg-config are needed too: PyGObject's [gtk] extra
+      # pulls in pycairo, which pip builds from source and needs cairo's
+      # dev headers (found via pkg-config) to compile against.
       - name: Install Linux system dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-gi gir1.2-webkit2-4.1 libgirepository1.0-dev
+          sudo apt-get install -y python3-gi gir1.2-webkit2-4.1 libgirepository1.0-dev libcairo2-dev pkg-config
 
       - name: Install Python dependencies
         run: |

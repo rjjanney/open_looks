@@ -6,8 +6,10 @@ opencv-python-headless
 # they need automatically (pythonnet / pyobjc are pulled in by pywebview
 # itself via its own platform markers) -- Linux needs the [gtk] extra for
 # PyGObject, and PyGObject additionally needs system-level GObject
-# introspection + WebKit2GTK libraries that pip can't install on its own:
-#   Ubuntu/Debian: sudo apt-get install -y python3-gi gir1.2-webkit2-4.1 libgirepository1.0-dev
-#   Fedora:        sudo dnf install -y python3-gobject webkit2gtk4.1 gobject-introspection-devel
+# introspection + WebKit2GTK + cairo libraries that pip can't install on
+# its own (cairo's dev headers specifically because PyGObject's [gtk]
+# extra pulls in pycairo, which pip builds from source):
+#   Ubuntu/Debian: sudo apt-get install -y python3-gi gir1.2-webkit2-4.1 libgirepository1.0-dev libcairo2-dev pkg-config
+#   Fedora:        sudo dnf install -y python3-gobject webkit2gtk4.1 gobject-introspection-devel cairo-devel pkgconf-pkg-config
 pywebview[gtk]; sys_platform == "linux"
 pywebview; sys_platform != "linux"
