@@ -61,30 +61,27 @@ a = Analysis(
 )
 
 if sys.platform == "linux":
-    # GTK/GLib system libraries must not be bundled -- they are tightly
-    # coupled to other system libraries (libsecret, WebKit2GTK, etc.) that
-    # are NOT bundled and link against the distro's own GLib ABI. Bundling
-    # GLib from the build machine (Ubuntu) causes undefined-symbol crashes
-    # on any distro with a different GLib (e.g. Fedora). Let the OS supply
-    # these; they are always present on any GTK-capable Linux system.
-    _SYSTEM_LIBS = (
-        "libglib", "libgobject", "libgio", "libgmodule", "libgthread",
-        "libgirepository",
-        "libcairo", "libpixman",
-        "libpango", "libpangocairo", "libpangofc", "libpangoft",
-        "libatk",
-        "libgdk_pixbuf", "libgdk-", "libgtk-",
-        "libharfbuzz",
-        "libfontconfig", "libfreetype", "libfribidi",
-        "libepoxy",
-        "libdbus",
-        "libX", "libxcb", "libxkb",
-        "libwayland",
-    )
-    a.binaries = [
-        b for b in a.binaries
-        if not any(b[0].startswith(p) for p in _SYSTEM_LIBS)
-    ]
+    # On Linux, PyInstaller bundles shared libraries from the build machine.
+    # System libraries vary in version across distros, and bundling them
+    # causes ABI conflicts at runtime (e.g. Fedora's libgio.so requires a
+    # newer libmount than Ubuntu's bundled copy). The safe rule: any lib
+    # whose name contains a package-mangled hash (8+ lowercase hex chars
+    # after a separator) is owned by a Python package (opencv, numpy, etc.)
+    # and safe to bundle. Everything else is a system library and must come
+    # from the OS. A small explicit keep-list covers pywebview's private
+    # libs that don't follow the hash convention.
+    import re as _re
+    _HASH = _re.compile(r'[-_][0-9a-f]{8,}')
+    _KEEP = ("libpython", "libduktape", "libpxbackend")
+
+    def _bundlable(name):
+        if not name.startswith("lib"):
+            return True                           # Python extension (.so)
+        if any(name.startswith(k) for k in _KEEP):
+            return True                           # pywebview private libs
+        return bool(_HASH.search(name))           # mangled = python-pkg lib
+
+    a.binaries = [b for b in a.binaries if _bundlable(b[0])]
 
 pyz = PYZ(a.pure)
 

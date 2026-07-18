@@ -21,6 +21,18 @@ from pathlib import Path
 # common system typelib paths so gi can find WebKit2 on any distro after
 # the bundled typelibs are already in the search path.
 if sys.platform == "linux":
+    # PyInstaller's gi hook sets GDK_PIXBUF_MODULEDIR to the bundle's
+    # extraction dir and GI_TYPELIB_PATH to the bundled typelibs. We strip
+    # out system GTK/GLib libs from the bundle so the OS supplies them,
+    # which means we must also let the OS supply gdk-pixbuf loaders instead
+    # of the (now incomplete) bundled set. Clear the redirect so system
+    # gdk-pixbuf finds its own loaders.
+    for _var in ("GDK_PIXBUF_MODULEDIR", "GDK_PIXBUF_MODULE_FILE"):
+        os.environ.pop(_var, None)
+
+    # Append system typelib dirs to whatever GI_TYPELIB_PATH the gi hook
+    # set (bundled typelibs for GLib/Gtk/Pango etc.), so gi can also find
+    # WebKit2 which is never bundled.
     _system_typelib_dirs = [
         "/usr/lib64/girepository-1.0",                 # Fedora / RHEL / openSUSE
         "/usr/lib/x86_64-linux-gnu/girepository-1.0",  # Ubuntu / Debian x86-64
