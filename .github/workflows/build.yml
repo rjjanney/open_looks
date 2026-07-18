@@ -16,6 +16,12 @@ on:
   pull_request:
     branches: [main]
 
+# The default GITHUB_TOKEN is read-only unless a workflow asks for more --
+# the "Attach to release" step needs write access to create the Release and
+# upload assets to it.
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
