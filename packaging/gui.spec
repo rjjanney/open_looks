@@ -59,6 +59,33 @@ a = Analysis(
     runtime_hooks=platform_runtime_hooks,
     noarchive=False,
 )
+
+if sys.platform == "linux":
+    # GTK/GLib system libraries must not be bundled -- they are tightly
+    # coupled to other system libraries (libsecret, WebKit2GTK, etc.) that
+    # are NOT bundled and link against the distro's own GLib ABI. Bundling
+    # GLib from the build machine (Ubuntu) causes undefined-symbol crashes
+    # on any distro with a different GLib (e.g. Fedora). Let the OS supply
+    # these; they are always present on any GTK-capable Linux system.
+    _SYSTEM_LIBS = (
+        "libglib", "libgobject", "libgio", "libgmodule", "libgthread",
+        "libgirepository",
+        "libcairo", "libpixman",
+        "libpango", "libpangocairo", "libpangofc", "libpangoft",
+        "libatk",
+        "libgdk_pixbuf", "libgdk-", "libgtk-",
+        "libharfbuzz",
+        "libfontconfig", "libfreetype", "libfribidi",
+        "libepoxy",
+        "libdbus",
+        "libX", "libxcb", "libxkb",
+        "libwayland",
+    )
+    a.binaries = [
+        b for b in a.binaries
+        if not any(b[0].startswith(p) for p in _SYSTEM_LIBS)
+    ]
+
 pyz = PYZ(a.pure)
 
 if sys.platform == "darwin":
