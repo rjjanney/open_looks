@@ -43,6 +43,16 @@ if sys.platform == "linux":
     _extra = ":".join(d for d in _system_typelib_dirs if os.path.isdir(d))
     os.environ["GI_TYPELIB_PATH"] = ":".join(filter(None, [_existing, _extra]))
 
+    # Two more defaults needed for the packaged binary to actually render
+    # under GNOME/Wayland (confirmed on stock Ubuntu): native Wayland hits a
+    # protocol crash in this webview/GTK/WebKit2 combination, and even once
+    # routed through XWayland, WebKit2's GPU compositing path fails to get a
+    # GBM buffer and paints a blank white window. setdefault() so an
+    # advanced user can still override either by exporting their own value
+    # before launching.
+    os.environ.setdefault("GDK_BACKEND", "x11")
+    os.environ.setdefault("WEBKIT_DISABLE_COMPOSITING_MODE", "1")
+
 APP_DIR = Path(__file__).resolve().parent.parent / "app"
 sys.path.insert(0, str(APP_DIR))
 
