@@ -40,6 +40,17 @@ Python required. Every push also runs through
 [`.github/workflows/build.yml`](.github/workflows/build.yml), so `main` is
 always known to package cleanly on all three platforms.
 
+**Linux runtime requirement:** the prebuilt binary uses the system's
+WebKit2GTK for rendering. Install it once if you haven't already:
+
+```bash
+# Ubuntu / Debian
+sudo apt install gir1.2-webkit2-4.1
+
+# Fedora / RHEL
+sudo dnf install webkit2gtk4.1
+```
+
 **From source**, either the desktop app or the CLI:
 
 ```powershell
