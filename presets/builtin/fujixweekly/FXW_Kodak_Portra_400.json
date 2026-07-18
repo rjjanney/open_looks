@@ -1,0 +1,22 @@
+{
+  "preset_name": "FXW Kodak Portra 400",
+  "Contrast2012": 12,
+  "Saturation": -3,
+  "SaturationAdjustmentGreen": -15,
+  "SplitToningShadowHue": 205,
+  "SplitToningShadowSaturation": 8,
+  "SplitToningBalance": -10,
+  "Highlights2012": -12,
+  "Shadows2012": -24,
+  "Vibrance": 10,
+  "Clarity2012": 16,
+  "Sharpness": 11,
+  "SharpenRadius": 1.0,
+  "GrainAmount": 45,
+  "GrainSize": 22,
+  "GrainFrequency": 55,
+  "SaturationAdjustmentRed": -6,
+  "SaturationAdjustmentOrange": -6,
+  "SplitToningHighlightHue": 45,
+  "SplitToningHighlightSaturation": 9.6
+}

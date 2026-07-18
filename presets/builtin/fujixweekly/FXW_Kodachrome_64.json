@@ -1,0 +1,20 @@
+{
+  "preset_name": "FXW Kodachrome 64",
+  "Contrast2012": 12,
+  "Saturation": -3,
+  "SaturationAdjustmentGreen": -15,
+  "SplitToningShadowHue": 205,
+  "SplitToningShadowSaturation": 8,
+  "SplitToningBalance": -10,
+  "Vibrance": 10,
+  "Clarity2012": 24,
+  "Sharpness": 32,
+  "SharpenRadius": 1.0,
+  "GrainAmount": 14,
+  "GrainSize": 22,
+  "GrainFrequency": 55,
+  "SaturationAdjustmentRed": -6,
+  "SaturationAdjustmentOrange": -6,
+  "SplitToningHighlightHue": 45,
+  "SplitToningHighlightSaturation": 8.4
+}

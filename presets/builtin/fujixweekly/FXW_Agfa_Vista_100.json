@@ -1,0 +1,21 @@
+{
+  "preset_name": "FXW Agfa Vista 100",
+  "Contrast2012": 4,
+  "Saturation": 6,
+  "SaturationAdjustmentYellow": -8,
+  "SplitToningShadowHue": 140,
+  "SplitToningShadowSaturation": 10,
+  "SplitToningHighlightHue": 45,
+  "SplitToningHighlightSaturation": 8,
+  "Highlights2012": 12,
+  "Shadows2012": -24,
+  "Vibrance": 10,
+  "Clarity2012": 24,
+  "Sharpness": 25,
+  "SharpenRadius": 1.0,
+  "GrainAmount": 45,
+  "GrainSize": 22,
+  "GrainFrequency": 55,
+  "SaturationAdjustmentRed": -3,
+  "SaturationAdjustmentOrange": -3
+}

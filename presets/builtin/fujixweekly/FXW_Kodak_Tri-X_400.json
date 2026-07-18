@@ -1,0 +1,17 @@
+{
+  "preset_name": "FXW Kodak Tri-X 400",
+  "ConvertToGrayscale": true,
+  "Contrast2012": 14,
+  "GrayMixerRed": 15,
+  "GrayMixerOrange": 8,
+  "GrayMixerBlue": -12,
+  "Shadows2012": 36,
+  "Clarity2012": 32,
+  "Sharpness": 32,
+  "SharpenRadius": 1.0,
+  "GrainAmount": 45,
+  "GrainSize": 55,
+  "GrainFrequency": 55,
+  "SplitToningHighlightHue": 45,
+  "SplitToningHighlightSaturation": 15
+}

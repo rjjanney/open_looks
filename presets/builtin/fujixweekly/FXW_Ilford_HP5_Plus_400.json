@@ -1,0 +1,14 @@
+{
+  "preset_name": "FXW Ilford HP5 Plus 400",
+  "ConvertToGrayscale": true,
+  "Contrast2012": 6,
+  "Highlights2012": -12,
+  "Shadows2012": 12,
+  "Sharpness": 11,
+  "SharpenRadius": 1.0,
+  "GrainAmount": 45,
+  "GrainSize": 55,
+  "GrainFrequency": 55,
+  "SplitToningHighlightHue": 45,
+  "SplitToningHighlightSaturation": 10.799999999999999
+}

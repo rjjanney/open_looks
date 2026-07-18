@@ -1,0 +1,20 @@
+{
+  "preset_name": "FXW Classic Negative",
+  "Contrast2012": 4,
+  "Saturation": 12,
+  "SaturationAdjustmentYellow": -8,
+  "SplitToningShadowHue": 140,
+  "SplitToningShadowSaturation": 10,
+  "SplitToningHighlightHue": 45,
+  "SplitToningHighlightSaturation": 8,
+  "Highlights2012": 12,
+  "Vibrance": 15,
+  "Clarity2012": 16,
+  "Sharpness": 25,
+  "SharpenRadius": 1.0,
+  "GrainAmount": 14,
+  "GrainSize": 55,
+  "GrainFrequency": 55,
+  "SaturationAdjustmentRed": -3,
+  "SaturationAdjustmentOrange": -3
+}

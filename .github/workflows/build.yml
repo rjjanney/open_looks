@@ -1,0 +1,83 @@
+name: Build
+
+# PyInstaller can't cross-compile, so this matrix builds each platform on a
+# runner that actually runs that OS -- see packaging/gui.spec for the
+# per-platform packaging shape (onefile on Windows/Linux, a proper .app
+# bundle on macOS).
+#
+# Every push/PR gets a build (fast feedback that packaging still works);
+# pushing a "v*" tag additionally attaches the three binaries to a GitHub
+# Release, so that's the actual distribution mechanism -- tag a version,
+# come back in a few minutes, grab the assets off the Release page.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: dist/open_looks.exe
+            artifact_name: open_looks-windows.exe
+          - os: macos-latest
+            asset: dist/open_looks.app
+            artifact_name: open_looks-macos.app.zip
+          - os: ubuntu-latest
+            asset: dist/open_looks
+            artifact_name: open_looks-linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      # PyGObject (pywebview's Linux backend) links against WebKit2GTK at
+      # runtime -- these are system libraries, not something pip can
+      # install, so they have to go on via apt before `pip install` runs.
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi gir1.2-webkit2-4.1 libgirepository1.0-dev
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r packaging/requirements-build.txt
+
+      - name: Build with PyInstaller
+        run: pyinstaller packaging/gui.spec --clean --noconfirm
+
+      # macOS produces a directory (a .app bundle) -- zip it so it survives
+      # the artifact upload / release-asset step as one file, matching the
+      # single-file shape of the Windows/Linux outputs.
+      - name: Zip macOS .app bundle
+        if: matrix.os == 'macos-latest'
+        run: (cd dist && zip -r open_looks-macos.app.zip open_looks.app)
+
+      - name: Rename Windows/Linux binary
+        if: matrix.os != 'macos-latest'
+        shell: bash
+        run: cp "${{ matrix.asset }}" "dist/${{ matrix.artifact_name }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact_name }}
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ matrix.artifact_name }}

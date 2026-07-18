@@ -1,0 +1,17 @@
+{
+  "preset_name": "FXW Sepia",
+  "ConvertToGrayscale": true,
+  "Contrast2012": 4,
+  "SplitToningShadowHue": 40,
+  "SplitToningShadowSaturation": 22,
+  "SplitToningHighlightHue": 45,
+  "SplitToningHighlightSaturation": 18,
+  "Highlights2012": 36,
+  "Shadows2012": 36,
+  "Clarity2012": 16,
+  "Sharpness": 11,
+  "SharpenRadius": 1.0,
+  "GrainAmount": 45,
+  "GrainSize": 55,
+  "GrainFrequency": 55
+}

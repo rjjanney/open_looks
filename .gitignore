@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+Output/
+presets/user/
+dist/
+build/

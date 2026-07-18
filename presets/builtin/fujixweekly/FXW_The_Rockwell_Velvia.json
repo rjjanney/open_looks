@@ -1,0 +1,20 @@
+{
+  "preset_name": "FXW The Rockwell (Velvia)",
+  "Contrast2012": 18,
+  "Saturation": 39,
+  "SaturationAdjustmentGreen": 12,
+  "SaturationAdjustmentBlue": 14,
+  "Highlights2012": -12,
+  "Shadows2012": -12,
+  "Vibrance": 20,
+  "Clarity2012": 40,
+  "Sharpness": 53,
+  "SharpenRadius": 1.0,
+  "GrainAmount": 14,
+  "GrainSize": 22,
+  "GrainFrequency": 55,
+  "SaturationAdjustmentRed": -6,
+  "SaturationAdjustmentOrange": -6,
+  "SplitToningHighlightHue": 45,
+  "SplitToningHighlightSaturation": 2.4
+}

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>open_looks</title>
+<link rel="stylesheet" href="app.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-title">
+    <p class="eyebrow">open_looks</p>
+    <h1>Look Preview</h1>
+  </div>
+  <div class="topbar-folder">
+    <span id="folderPath" class="folder-path">No folder selected</span>
+    <button id="manageLooksBtn" class="btn btn-secondary">Manage Looks&hellip;</button>
+    <button id="importLookBtn" class="btn btn-secondary">Import Look&hellip;</button>
+    <button id="chooseFolderBtn" class="btn btn-primary">Choose Folder&hellip;</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="filmstrip-panel">
+    <h2 class="panel-label">Photos</h2>
+    <div id="filmstrip" class="filmstrip-list">
+      <p class="empty-hint">Choose a folder to see photos here.</p>
+    </div>
+  </aside>
+
+  <main class="main-panel">
+    <div id="mainPreviewWrap" class="main-preview-wrap">
+      <img id="mainPreview" class="main-preview" alt="" hidden />
+      <p id="mainPreviewHint" class="empty-hint">Select a photo from the left to preview all looks.</p>
+    </div>
+
+    <div id="lookGridWrap" class="look-grid-wrap">
+      <div id="lookGridStatus" class="grid-status" hidden>
+        <div class="spinner"></div>
+        <span id="lookGridStatusText">Rendering previews&hellip;</span>
+      </div>
+      <div id="lookGrid" class="look-grid"></div>
+    </div>
+  </main>
+</div>
+
+<footer class="actionbar">
+  <div class="actionbar-info">
+    <span id="selectedLookLabel" class="selected-look-label">No look selected</span>
+    <span id="actionStatus" class="action-status"></span>
+  </div>
+  <div class="actionbar-buttons">
+    <button id="applyPhotoBtn" class="btn btn-secondary" disabled>Apply to This Photo</button>
+    <button id="applyFolderBtn" class="btn btn-accent" disabled>Apply to Whole Folder</button>
+  </div>
+</footer>
+
+<div class="modal-backdrop" id="manageModal" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Manage Looks</h2>
+      <button id="manageModalClose" class="btn-icon" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="section-note">Hiding a built-in look leaves the bundled file untouched -- Unhide brings it right back. Deleting an imported look removes its local copy. To reorder: click a look, then use &uarr;/&darr;.</p>
+      <ul id="manageLookList" class="manage-list"></ul>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "preset_name": "FXW CineStill 800T",
+  "Contrast2012": -14,
+  "Saturation": 2,
+  "Shadows2012": 34,
+  "Highlights2012": -8,
+  "Vibrance": 20,
+  "Clarity2012": -40,
+  "Sharpness": 4,
+  "SharpenRadius": 1.0,
+  "GrainAmount": 45,
+  "GrainSize": 55,
+  "GrainFrequency": 55,
+  "SaturationAdjustmentRed": -6,
+  "SaturationAdjustmentOrange": -6,
+  "SplitToningHighlightHue": 215,
+  "SplitToningHighlightSaturation": 2.4
+}

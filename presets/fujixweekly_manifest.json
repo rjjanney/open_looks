@@ -1,0 +1,177 @@
+[
+  {
+    "name": "FXW Kodak Tri-X 400",
+    "file": "builtin\\fujixweekly\\FXW_Kodak_Tri-X_400.json",
+    "author": "Ritchie Roesch",
+    "site": "Fuji X Weekly",
+    "url": "https://fujixweekly.com/2020/06/18/fujifilm-x100v-film-simulation-recipe-kodak-tri-x-400/",
+    "original_fuji_menu_settings": {
+      "film_simulation": "Acros",
+      "highlight": 0,
+      "shadow": 3,
+      "clarity": 4,
+      "sharpening": 1,
+      "grain_strength": "Strong",
+      "grain_size": "Large",
+      "color_chrome": "Strong",
+      "wb_red": 9,
+      "wb_blue": -9
+    }
+  },
+  {
+    "name": "FXW Kodak Portra 400",
+    "file": "builtin\\fujixweekly\\FXW_Kodak_Portra_400.json",
+    "author": "Ritchie Roesch",
+    "site": "Fuji X Weekly",
+    "url": "https://fujixweekly.com/2020/06/10/fujifilm-x100v-film-simulation-kodak-portra-400/",
+    "original_fuji_menu_settings": {
+      "film_simulation": "ClassicChrome",
+      "highlight": -1,
+      "shadow": -2,
+      "color": 2,
+      "clarity": 2,
+      "sharpening": -2,
+      "grain_strength": "Strong",
+      "grain_size": "Small",
+      "color_chrome": "Strong",
+      "wb_red": 3,
+      "wb_blue": -5
+    }
+  },
+  {
+    "name": "FXW Classic Negative",
+    "file": "builtin\\fujixweekly\\FXW_Classic_Negative.json",
+    "author": "Luis Costa (original), Ritchie Roesch (modified)",
+    "site": "Fuji X Weekly",
+    "url": "https://fujixweekly.com/2020/06/01/not-my-fujifilm-x100v-classic-negative-film-simulation-recipe/",
+    "original_fuji_menu_settings": {
+      "film_simulation": "ClassicNeg",
+      "highlight": 1,
+      "shadow": 0,
+      "color": 3,
+      "clarity": 2,
+      "sharpening": 0,
+      "grain_strength": "Weak",
+      "grain_size": "Large",
+      "color_chrome": "Weak",
+      "wb_red": 4,
+      "wb_blue": -4
+    }
+  },
+  {
+    "name": "FXW The Rockwell (Velvia)",
+    "file": "builtin\\fujixweekly\\FXW_The_Rockwell_Velvia.json",
+    "author": "Ritchie Roesch",
+    "site": "Fuji X Weekly",
+    "url": "https://fujixweekly.com/2020/07/18/fujifilm-x100v-film-simulation-recipe-the-rockwell-velvia/",
+    "original_fuji_menu_settings": {
+      "film_simulation": "Velvia",
+      "highlight": -1,
+      "shadow": -1,
+      "color": 4,
+      "clarity": 5,
+      "sharpening": 4,
+      "grain_strength": "Weak",
+      "grain_size": "Small",
+      "color_chrome": "Strong",
+      "wb_red": 1,
+      "wb_blue": -1
+    }
+  },
+  {
+    "name": "FXW CineStill 800T",
+    "file": "builtin\\fujixweekly\\FXW_CineStill_800T.json",
+    "author": "Ritchie Roesch",
+    "site": "Fuji X Weekly",
+    "url": "https://fujixweekly.com/2020/10/06/fujifilm-x100v-film-simulation-recipe-cinestill-800t/",
+    "original_fuji_menu_settings": {
+      "film_simulation": "Eterna",
+      "highlight": 0,
+      "shadow": 2,
+      "color": 4,
+      "clarity": -5,
+      "sharpening": -3,
+      "grain_strength": "Strong",
+      "grain_size": "Large",
+      "color_chrome": "Strong",
+      "wb_red": -6,
+      "wb_blue": -4
+    }
+  },
+  {
+    "name": "FXW Sepia",
+    "file": "builtin\\fujixweekly\\FXW_Sepia.json",
+    "author": "Ritchie Roesch",
+    "site": "Fuji X Weekly",
+    "url": "https://fujixweekly.com/2020/07/01/sepia-the-forgotten-film-simulation/",
+    "original_fuji_menu_settings": {
+      "film_simulation": "Sepia",
+      "highlight": 3,
+      "shadow": 3,
+      "clarity": 2,
+      "sharpening": -2,
+      "grain_strength": "Strong",
+      "grain_size": "Large",
+      "color_chrome": "Off"
+    }
+  },
+  {
+    "name": "FXW Kodachrome 64",
+    "file": "builtin\\fujixweekly\\FXW_Kodachrome_64.json",
+    "author": "Ritchie Roesch",
+    "site": "Fuji X Weekly",
+    "url": "https://fujixweekly.com/2020/05/27/my-fujifilm-x100v-kodachrome-64-film-simulation-recipe/",
+    "original_fuji_menu_settings": {
+      "film_simulation": "ClassicChrome",
+      "highlight": 0,
+      "shadow": 0,
+      "color": 2,
+      "clarity": 3,
+      "sharpening": 1,
+      "grain_strength": "Weak",
+      "grain_size": "Small",
+      "color_chrome": "Strong",
+      "wb_red": 2,
+      "wb_blue": -5
+    }
+  },
+  {
+    "name": "FXW Agfa Vista 100",
+    "file": "builtin\\fujixweekly\\FXW_Agfa_Vista_100.json",
+    "author": "Ritchie Roesch",
+    "site": "Fuji X Weekly",
+    "url": "https://fujixweekly.com/2020/09/28/fujifilm-x100v-film-simulation-recipe-agfa-vista-100/",
+    "original_fuji_menu_settings": {
+      "film_simulation": "ClassicNeg",
+      "highlight": 1,
+      "shadow": -2,
+      "color": 2,
+      "clarity": 3,
+      "sharpening": 0,
+      "grain_strength": "Strong",
+      "grain_size": "Small",
+      "color_chrome": "Weak",
+      "wb_red": -4,
+      "wb_blue": -5
+    }
+  },
+  {
+    "name": "FXW Ilford HP5 Plus 400",
+    "file": "builtin\\fujixweekly\\FXW_Ilford_HP5_Plus_400.json",
+    "author": "Anders Lindborg",
+    "site": "Fuji X Weekly",
+    "url": "https://fujixweekly.com/2022/03/23/fujifilm-x-trans-iv-film-simulation-recipe-ilford-hp5-plus-400/",
+    "original_fuji_menu_settings": {
+      "film_simulation": "Monochrome",
+      "highlight": -1,
+      "shadow": 1,
+      "clarity": 0,
+      "sharpening": -2,
+      "grain_strength": "Strong",
+      "grain_size": "Large",
+      "color_chrome": "Off",
+      "wb_red": 1,
+      "wb_blue": -8
+    }
+  }
+]
