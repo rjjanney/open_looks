@@ -45,7 +45,7 @@ elif sys.platform == "darwin":
     platform_runtime_hooks = []
 else:
     platform_hiddenimports = ["webview.platforms.gtk"]
-    platform_runtime_hooks = [str(REPO / "packaging" / "hook_gi_typelib_path.py")]
+    platform_runtime_hooks = []
 
 a = Analysis(
     [str(REPO / "packaging" / "entry_gui.py")],
