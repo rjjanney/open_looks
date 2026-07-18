@@ -11,5 +11,5 @@ opencv-python-headless
 # extra pulls in pycairo, which pip builds from source):
 #   Ubuntu/Debian: sudo apt-get install -y python3-gi gir1.2-webkit2-4.1 libgirepository1.0-dev libcairo2-dev pkg-config
 #   Fedora:        sudo dnf install -y python3-gobject webkit2gtk4.1 gobject-introspection-devel cairo-devel pkgconf-pkg-config
-pywebview[gtk]; sys_platform == "linux"
-pywebview; sys_platform != "linux"
+pywebview[gtk]==6.2.1; sys_platform == "linux"
+pywebview==6.2.1; sys_platform != "linux"
