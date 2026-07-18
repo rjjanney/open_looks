@@ -39,10 +39,13 @@ PRESETS_DIR = REPO / "presets" / "builtin"
 
 if sys.platform == "win32":
     platform_hiddenimports = ["webview.platforms.winforms", "clr_loader", "clr"]
+    platform_runtime_hooks = []
 elif sys.platform == "darwin":
     platform_hiddenimports = ["webview.platforms.cocoa"]
+    platform_runtime_hooks = []
 else:
     platform_hiddenimports = ["webview.platforms.gtk"]
+    platform_runtime_hooks = [str(REPO / "packaging" / "hook_gi_typelib_path.py")]
 
 a = Analysis(
     [str(REPO / "packaging" / "entry_gui.py")],
@@ -53,6 +56,7 @@ a = Analysis(
         (str(PRESETS_DIR), "presets/builtin"),
     ],
     hiddenimports=platform_hiddenimports,
+    runtime_hooks=platform_runtime_hooks,
     noarchive=False,
 )
 pyz = PYZ(a.pure)
