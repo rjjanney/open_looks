@@ -1,5 +1,7 @@
 # open_looks
 
+![open_looks screenshot](.github/screenshot.png)
+
 A small, offline, MIT-licensed tool for applying film-style photo looks to
 JPEGs -- and importing more looks from other places, instead of being locked
 to whatever ships in the box.
