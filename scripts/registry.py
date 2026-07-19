@@ -13,7 +13,10 @@ from pathlib import Path
 from typing import Any
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = SCRIPTS_DIR.parent
+# sys._MEIPASS is the PyInstaller onefile extraction root; __file__ in a
+# frozen build resolves to that root directly (no scripts/ subdirectory),
+# so .parent would give /tmp/ instead of the extraction dir.
+PROJECT_ROOT = Path(getattr(sys, "_MEIPASS", SCRIPTS_DIR.parent))
 PRESETS_DIR = PROJECT_ROOT / "presets" / "builtin"
 
 sys.path.insert(0, str(SCRIPTS_DIR))
