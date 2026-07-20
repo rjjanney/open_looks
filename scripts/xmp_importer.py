@@ -37,16 +37,21 @@ def _coerce(value: str) -> Any:
 
 
 def _parse_seq_points(elem: ET.Element) -> list[tuple[float, float]]:
-    """Parse a <crs:ToneCurvePV2012>/<rdf:Seq><rdf:li>x, y</rdf:li>...</rdf:Seq> block."""
+    """Parse a <crs:ToneCurvePV2012>/<rdf:Seq><rdf:li>x, y</rdf:li>...</rdf:Seq> block.
+
+    Some newer crs: fields (e.g. PointColors) also nest an rdf:Seq but pack
+    many comma-separated values into each rdf:li instead of a plain x, y
+    pair -- skip those entries rather than mis-parsing them as a 2-tuple."""
     points = []
     seq = elem.find("rdf:Seq", NS)
     if seq is None:
         return points
     for li in seq.findall("rdf:li", NS):
         text = (li.text or "").strip()
-        if "," in text:
-            x_str, y_str = text.split(",", 1)
-            points.append((float(x_str.strip()), float(y_str.strip())))
+        if text.count(",") != 1:
+            continue
+        x_str, y_str = text.split(",", 1)
+        points.append((float(x_str.strip()), float(y_str.strip())))
     return points
 
 
