@@ -36,6 +36,89 @@ def _coerce(value: str) -> Any:
     return value
 
 
+# crs: fields that real preset exports (Lightroom, ON1, PK Edits, ...)
+# write on every single preset with a fixed no-op value regardless of
+# whether that preset actually touches the control -- e.g. ON1's whole
+# Signature Collection pack writes Dehaze="0" on all 60 presets, including
+# ones that obviously never used haze removal. develop_engine.py doesn't
+# render any of these, but warning about every one of them on every import
+# would just be noise; only flag a preset that set one away from its
+# no-op default.
+_IGNORED_SCALAR_DEFAULTS: dict[str, float] = {
+    "Dehaze": 0,
+    "Texture": 0,
+    "Temperature": 0,
+    "Tint": 0,
+    "ColorGradeShadowHue": 0,
+    "ColorGradeShadowSat": 0,
+    "ColorGradeShadowLum": 0,
+    "ColorGradeMidtoneHue": 0,
+    "ColorGradeMidtoneSat": 0,
+    "ColorGradeMidtoneLum": 0,
+    "ColorGradeHighlightHue": 0,
+    "ColorGradeHighlightSat": 0,
+    "ColorGradeHighlightLum": 0,
+    "ColorGradeGlobalHue": 0,
+    "ColorGradeGlobalSat": 0,
+    "ColorGradeGlobalLum": 0,
+    "PostCropVignetteStyle": 0,
+    "PostCropVignetteRoundness": 0,
+    "PostCropVignetteHighlightContrast": 0,
+}
+
+# Nested crs: fields holding local/masked adjustments (brush masks, linear
+# and radial gradients, range masks). Unlike the scalars above, there's no
+# meaningful "default" for these -- if one is present with actual entries,
+# a real local edit exists and develop_engine.py (global-only) drops it.
+_LOCAL_ADJUSTMENT_FIELDS = {
+    "MaskGroupBasedCorrections",
+    "PaintBasedCorrections",
+    "GradientBasedCorrections",
+    "CircularGradientBasedCorrections",
+}
+
+
+def _has_real_point_colors(elem: ET.Element) -> bool:
+    """PointColors (Point Color grading) is written by every preset tool
+    we've seen as a fixed block of -1 sentinels when unused. Only treat it
+    as real, unsupported content if some value actually differs."""
+    for li in elem.iter("{" + NS["rdf"] + "}li"):
+        for token in (li.text or "").split(","):
+            token = token.strip()
+            if not token:
+                continue
+            try:
+                if float(token) != -1.0:
+                    return True
+            except ValueError:
+                return True
+    return False
+
+
+def _describe_unsupported(desc: ET.Element) -> list[str]:
+    """Best-effort scan for develop settings this app parses but can't
+    render -- not exhaustive, just the fields real preset packs (ON1, PK
+    Edits, Lightroom exports) actually set in practice."""
+    warnings: list[str] = []
+    crs_tag = "{" + NS["crs"] + "}"
+
+    for field, default in _IGNORED_SCALAR_DEFAULTS.items():
+        raw = desc.get(crs_tag + field)
+        if raw is not None and _coerce(raw) != default:
+            warnings.append(f"{field} is set but not rendered (ignored)")
+
+    for elem in desc.iter():
+        if not elem.tag.startswith(crs_tag):
+            continue
+        field = elem.tag.split("}", 1)[1]
+        if field in _LOCAL_ADJUSTMENT_FIELDS and elem.find(".//rdf:li", NS) is not None:
+            warnings.append(f"{field} (local mask/gradient adjustment) is not rendered")
+        elif field == "PointColors" and _has_real_point_colors(elem):
+            warnings.append("PointColors (Point Color grading) is not rendered")
+
+    return warnings
+
+
 def _parse_seq_points(elem: ET.Element) -> list[tuple[float, float]]:
     """Parse a <crs:ToneCurvePV2012>/<rdf:Seq><rdf:li>x, y</rdf:li>...</rdf:Seq> block.
 
@@ -77,6 +160,10 @@ def parse_xmp_bytes(data: bytes, name: str) -> dict[str, Any]:
             points = _parse_seq_points(child)
             if points:
                 recipe[field] = points
+
+    warnings = _describe_unsupported(desc)
+    if warnings:
+        recipe["_import_warnings"] = warnings
 
     return recipe
 
