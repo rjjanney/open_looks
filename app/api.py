@@ -183,7 +183,7 @@ class Api:
         else:
             small_source = source.convert("RGB")
 
-        seed = abs(hash(filename)) & 0xFFFFFFFF
+        seed = grain_seed_for(filename)
         previews: dict[str, str] = {
             "Original": _to_data_uri(small_source, PREVIEW_WIDTH, PREVIEW_QUALITY)
         }
