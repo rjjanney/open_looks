@@ -61,7 +61,7 @@
     }
     photos = res.photos;
     if (!photos.length) {
-      el.filmstrip.innerHTML = '<p class="empty-hint">No .jpg photos found in this folder.</p>';
+      el.filmstrip.innerHTML = '<p class="empty-hint">No .jpg/.png photos found in this folder.</p>';
       return;
     }
     el.filmstrip.innerHTML = "";

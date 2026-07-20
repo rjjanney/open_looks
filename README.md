@@ -3,8 +3,8 @@
 ![open_looks screenshot](.github/screenshot.png)
 
 A small, offline, MIT-licensed tool for applying film-style photo looks to
-JPEGs -- and importing more looks from other places, instead of being locked
-to whatever ships in the box.
+JPEGs and PNGs -- and importing more looks from other places, instead of
+being locked to whatever ships in the box.
 
 This is the freely-distributable sibling of a private project that used a
 paid Lightroom preset pack. Everything here is either original work or
@@ -36,8 +36,8 @@ openly-licensed, with sources documented in `presets/ATTRIBUTION.md`.
 
 Not a Lightroom competitor, and not trying to be. If you already live in a
 full raw-editing suite, keep using it -- this is for applying a look to a
-folder of JPEGs without installing anything heavier, for people who want a
-single small tool.
+folder of JPEGs/PNGs without installing anything heavier, for people who
+want a single small tool.
 
 ## Getting it
 

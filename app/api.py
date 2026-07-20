@@ -57,7 +57,7 @@ THUMB_WIDTH = 220
 PREVIEW_QUALITY = 72
 THUMB_QUALITY = 65
 
-IMAGE_EXTS = (".jpg", ".jpeg")
+IMAGE_EXTS = (".jpg", ".jpeg", ".png")
 
 
 def _to_data_uri(img: Image.Image, width: int, quality: int) -> str:
@@ -226,7 +226,7 @@ class Api:
         input_dir = Path(folder)
         photos = sorted(f for f in input_dir.iterdir() if f.suffix.lower() in IMAGE_EXTS)
         if not photos:
-            return {"ok": False, "error": "no .jpg photos found in that folder"}
+            return {"ok": False, "error": "no .jpg/.png photos found in that folder"}
 
         out_dir = input_dir / "Output" / safe_dirname(look_name)
         out_dir.mkdir(parents=True, exist_ok=True)

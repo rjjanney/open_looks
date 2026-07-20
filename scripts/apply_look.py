@@ -32,7 +32,7 @@ from registry import build_registry, import_look, save_imported_look
 from develop_engine import apply_recipe
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-IMAGE_EXTS = (".jpg", ".jpeg")
+IMAGE_EXTS = (".jpg", ".jpeg", ".png")
 
 
 def safe_dirname(name: str) -> str:
@@ -66,7 +66,7 @@ def _render_job(job: tuple[str, dict, str, str, int]) -> str:
 def collect_jobs(looks: dict[str, dict], input_dir: Path, output_dir: Path, quality: int):
     images = sorted(p for p in input_dir.iterdir() if p.suffix.lower() in IMAGE_EXTS)
     if not images:
-        print(f"No .jpg files found in {input_dir}")
+        print(f"No .jpg/.png files found in {input_dir}")
         return []
 
     jobs = []
@@ -102,7 +102,7 @@ def main() -> None:
     parser.add_argument("--all", action="store_true", help="Apply every available look")
     parser.add_argument("--list", action="store_true", help="List available look names and exit")
     parser.add_argument("--import", dest="import_path", help="Import a .xmp/.cube file (or folder) into presets/user/")
-    parser.add_argument("--input", default=str(PROJECT_ROOT / "Source"), help="Input folder of .jpg photos")
+    parser.add_argument("--input", default=str(PROJECT_ROOT / "Source"), help="Input folder of .jpg/.png photos")
     parser.add_argument("--output", default=str(PROJECT_ROOT / "Output"), help="Output root folder")
     parser.add_argument("--quality", type=int, default=92, help="JPEG save quality (default 92)")
     default_workers = max(1, (os.cpu_count() or 4) // 2)
