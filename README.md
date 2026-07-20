@@ -19,9 +19,14 @@ openly-licensed, with sources documented in `presets/ATTRIBUTION.md`.
 - 13 bundled looks: 4 original Fuji-style recipes, plus 9 recipes
   transcribed from published Fuji X Weekly community settings. Full
   breakdown and credits in `presets/ATTRIBUTION.md`.
-- Import your own looks from **.xmp** (Lightroom/ACR develop presets -- the
-  biggest, most-supported ecosystem) or **.cube** (3D LUTs, trilinear
-  interpolation) -- both full-fidelity, no partial translation involved.
+- Import your own looks from **.xmp** (Lightroom/ACR develop presets) or
+  **.cube** (3D LUTs). `.cube` files are applied full-fidelity with
+  trilinear interpolation. `.xmp` import covers the practical global
+  subset of Lightroom/ACR develop settings (tone curves, HSL color bands,
+  split toning, grain, vignette, and more) -- presets that lean on masks,
+  gradients, brush/local adjustments, or Point Color grading will import
+  partially, and the app tells you what got skipped rather than
+  pretending it wasn't. See `docs/xmp-support.md` for the full breakdown.
   Multi-select is supported, so you can import a whole folder of presets at
   once.
 - A desktop app (pywebview) with live before/after previews of every look
