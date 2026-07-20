@@ -263,12 +263,15 @@ class Api:
             return {"ok": False, "error": "nothing importable found in that file"}
 
         imported = []
+        warnings: dict[str, list[str]] = {}
         for name, recipe in found.items():
             save_imported_look(name, recipe, source_path=path)
             imported.append(name)
+            if recipe.get("_import_warnings"):
+                warnings[name] = recipe["_import_warnings"]
 
         self._reload_registry()
-        return {"ok": True, "imported": imported}
+        return {"ok": True, "imported": imported, "warnings": warnings}
 
     def remove_look(self, name: str) -> dict:
         """Remove a look from the list -- a built-in is *hidden* (the

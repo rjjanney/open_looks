@@ -221,11 +221,13 @@
     el.importLookBtn.disabled = true;
     const imported = [];
     const failed = [];
+    const warnings = {};
     for (const path of picked.paths) {
       setActionStatus(`Importing ${imported.length + failed.length + 1}/${picked.paths.length}…`);
       const res = await window.pywebview.api.import_look_file(path);
       if (res.ok) {
         imported.push(...res.imported);
+        Object.assign(warnings, res.warnings || {});
       } else {
         const base = path.split(/[\\/]/).pop();
         failed.push(`${base} (${res.error || "failed"})`);
@@ -235,8 +237,12 @@
 
     await refreshLookMeta();
     if (imported.length) {
-      const suffix = failed.length ? ` -- ${failed.length} failed: ${failed.join(", ")}` : "";
-      setActionStatus(`Imported: ${imported.join(", ")}${suffix}`, failed.length > 0);
+      const failSuffix = failed.length ? ` -- ${failed.length} failed: ${failed.join(", ")}` : "";
+      const warnNames = Object.keys(warnings);
+      const warnSuffix = warnNames.length
+        ? ` -- warnings: ${warnNames.map((n) => `${n} (${warnings[n].join("; ")})`).join(" | ")}`
+        : "";
+      setActionStatus(`Imported: ${imported.join(", ")}${failSuffix}${warnSuffix}`, failed.length > 0);
     } else {
       setActionStatus(failed.join(", ") || "Import failed", true);
     }

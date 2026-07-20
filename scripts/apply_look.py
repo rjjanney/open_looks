@@ -118,6 +118,8 @@ def main() -> None:
         for name, recipe in found.items():
             dest = save_imported_look(name, recipe, source_path=args.import_path)
             print(f"  {name} -> {dest}")
+            for warning in recipe.get("_import_warnings", []):
+                print(f"    Warning: {warning}")
         return
 
     registry = build_registry()
