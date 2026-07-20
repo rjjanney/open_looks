@@ -101,8 +101,15 @@ def test_dehaze_only_warns_when_non_default(attrs, should_warn):
     assert any("Dehaze" in w for w in warnings) == should_warn
 
 
-def test_vignette_style_and_roundness_warn():
-    attrs = 'crs:PostCropVignetteStyle="1" crs:PostCropVignetteRoundness="30"'
+def test_vignette_style_warns_but_roundness_does_not():
+    """PostCropVignetteStyle isn't rendered (Adobe's 3 blend modes aren't
+    reproduced), but Roundness and HighlightContrast are actually applied
+    by apply_vignette() now -- they must not be flagged as dropped."""
+    attrs = (
+        'crs:PostCropVignetteStyle="1" crs:PostCropVignetteRoundness="30" '
+        'crs:PostCropVignetteHighlightContrast="40"'
+    )
     warnings = parse_xmp_bytes(make_xmp(attrs=attrs), "Vignette Style").get("_import_warnings", [])
     assert any("PostCropVignetteStyle" in w for w in warnings)
-    assert any("PostCropVignetteRoundness" in w for w in warnings)
+    assert not any("PostCropVignetteRoundness" in w for w in warnings)
+    assert not any("PostCropVignetteHighlightContrast" in w for w in warnings)

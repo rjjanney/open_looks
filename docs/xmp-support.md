@@ -33,8 +33,8 @@ Global tone and color controls, applied by `develop_engine.py`:
 - **Saturation / Vibrance**
 - **Split toning**: shadow/highlight hue, saturation, balance
 - **Grain**: amount, size, frequency
-- **Vignette**: `PostCropVignetteAmount`, `Midpoint`, `Feather` (legacy
-  `VignetteAmount` too)
+- **Vignette**: `PostCropVignetteAmount`, `Midpoint`, `Feather`,
+  `Roundness`, `HighlightContrast` (legacy `VignetteAmount` too)
 - **Sharpening**: amount, radius
 - **A `.cube` LUT layered into the same recipe** (`_lut3d`)
 
@@ -60,9 +60,10 @@ when a preset sets one away from that default:
 - `Temperature`, `Tint` (white balance)
 - `ColorGrade{Shadow,Midtone,Highlight,Global}{Hue,Sat,Lum}` (3-way/4-way
   color grading)
-- `PostCropVignetteStyle`, `PostCropVignetteRoundness`,
-  `PostCropVignetteHighlightContrast` (the basic Amount/Midpoint/Feather
-  vignette above still applies; these are refinements on top of it)
+- `PostCropVignetteStyle` -- Adobe's 3 distinct blend modes (Highlight
+  Priority / Color Priority / Paint Overlay) aren't reproduced; the
+  vignette still renders via Amount/Midpoint/Feather/Roundness/
+  HighlightContrast, just always with the same blend approach
 
 ## Unsupported structures (warned when present)
 

@@ -322,6 +322,31 @@ def apply_grain(img: np.ndarray, recipe: dict, seed: int | None = None) -> np.nd
 # vignette
 # ---------------------------------------------------------------------------
 
+def _vignette_distance(xx: np.ndarray, yy: np.ndarray, cx: float, cy: float, roundness: float) -> np.ndarray:
+    """Distance-from-center field for the vignette falloff, shaped by
+    roundness (-1..1). 0 reproduces the original aspect-matched ellipse
+    (a plain p=2 norm with radii cx/cy). Positive roundness blends the
+    radii toward equal (min(cx, cy)) so it approaches a true circle at
+    +1. Negative roundness raises the norm's exponent instead, which
+    flattens the ellipse toward a rounded rectangle/"squircle" -- there's
+    no separate radius to shrink toward for a *more* rectangular shape,
+    so the exponent is the only knob available."""
+    if roundness >= 0:
+        p = 2.0
+        r = min(cx, cy)
+        rx = cx + (r - cx) * roundness
+        ry = cy + (r - cy) * roundness
+    else:
+        p = 2.0 + 4.0 * (-roundness)  # up to 6 at roundness == -1
+        rx, ry = cx, cy
+
+    dx = np.abs(xx - cx) / rx
+    dy = np.abs(yy - cy) / ry
+    dist = (dx**p + dy**p) ** (1.0 / p)
+    corner = ((cx / rx) ** p + (cy / ry) ** p) ** (1.0 / p)
+    return dist / corner
+
+
 def apply_vignette(img: np.ndarray, recipe: dict) -> np.ndarray:
     amount = recipe.get("PostCropVignetteAmount", 0) or recipe.get("VignetteAmount", 0)
     amount = amount / 100.0
@@ -329,14 +354,24 @@ def apply_vignette(img: np.ndarray, recipe: dict) -> np.ndarray:
         return img
     midpoint = recipe.get("PostCropVignetteMidpoint", 50) / 100.0
     feather = max(recipe.get("PostCropVignetteFeather", 50), 1) / 100.0
+    roundness = np.clip(recipe.get("PostCropVignetteRoundness", 0) / 100.0, -1.0, 1.0)
+    highlight_contrast = recipe.get("PostCropVignetteHighlightContrast", 0) / 100.0
 
     h, w = img.shape[:2]
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
     cy, cx = h / 2.0, w / 2.0
-    dist = np.sqrt(((xx - cx) / cx) ** 2 + ((yy - cy) / cy) ** 2) / np.sqrt(2)
+    dist = _vignette_distance(xx, yy, cx, cy, roundness)
     falloff = np.clip((dist - midpoint) / max(feather, 1e-3), 0, 1)
     factor = (1.0 + amount * falloff * 0.7).astype(np.float32)
-    return np.clip(img * factor[..., None], 0, 1)
+    out = img * factor[..., None]
+
+    if highlight_contrast:
+        # Extra contrast confined to the vignetted falloff region, so
+        # the darkened corners don't just flatten toward mud -- weighted
+        # by the same falloff mask used for the darkening itself.
+        out = out + (out - 0.5) * highlight_contrast * falloff[..., None] * 0.5
+
+    return np.clip(out, 0, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -357,6 +392,14 @@ def apply_sharpen(pil_img: Image.Image, recipe: dict) -> Image.Image:
 # ---------------------------------------------------------------------------
 
 def apply_recipe(pil_img: Image.Image, recipe: dict, grain_seed: int | None = None) -> Image.Image:
+    # A source PNG's alpha channel would otherwise be silently dropped by
+    # convert("RGB") below and never come back -- carry it around and
+    # reattach it at the end instead. Everything in between (grain,
+    # vignette, blur-based Clarity/sharpen) only ever touches RGB, so
+    # transparent pixels' arbitrary underlying RGB can bleed slightly into
+    # opaque edges through those blur steps -- a known, accepted
+    # approximation here, not a full premultiplied-alpha pipeline.
+    alpha = pil_img.getchannel("A") if "A" in pil_img.getbands() else None
     img = np.asarray(pil_img.convert("RGB")).astype(np.float32) / 255.0
 
     img = apply_basic_tone(img, recipe)
@@ -395,4 +438,7 @@ def apply_recipe(pil_img: Image.Image, recipe: dict, grain_seed: int | None = No
 
     out = Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8))
     out = apply_sharpen(out, recipe)
+    if alpha is not None:
+        out = out.convert("RGBA")
+        out.putalpha(alpha)
     return out

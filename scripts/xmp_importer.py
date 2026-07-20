@@ -62,8 +62,6 @@ _IGNORED_SCALAR_DEFAULTS: dict[str, float] = {
     "ColorGradeGlobalSat": 0,
     "ColorGradeGlobalLum": 0,
     "PostCropVignetteStyle": 0,
-    "PostCropVignetteRoundness": 0,
-    "PostCropVignetteHighlightContrast": 0,
 }
 
 # Nested crs: fields holding local/masked adjustments (brush masks, linear
