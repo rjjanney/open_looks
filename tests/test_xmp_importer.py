@@ -88,28 +88,27 @@ def test_gradient_mask_produces_warning_and_does_not_crash():
 
 
 @pytest.mark.parametrize(
-    "attrs,should_warn",
-    [
-        ('crs:Dehaze="0"', False),
-        ('crs:Dehaze="25"', True),
-        ('crs:Dehaze="-10"', True),
-    ],
+    "attrs",
+    ['crs:Dehaze="0"', 'crs:Dehaze="25"', 'crs:Dehaze="-10"', 'crs:Texture="0"', 'crs:Texture="60"'],
 )
-def test_dehaze_only_warns_when_non_default(attrs, should_warn):
-    recipe = parse_xmp_bytes(make_xmp(attrs=attrs), "Dehaze Test")
+def test_dehaze_and_texture_never_warn(attrs):
+    """Dehaze and Texture are both rendered by apply_basic_tone() now --
+    neither should ever be flagged as dropped, unlike the still-unsupported
+    fields in _IGNORED_SCALAR_DEFAULTS."""
+    recipe = parse_xmp_bytes(make_xmp(attrs=attrs), "Dehaze/Texture Test")
     warnings = recipe.get("_import_warnings", [])
-    assert any("Dehaze" in w for w in warnings) == should_warn
+    assert not any("Dehaze" in w or "Texture" in w for w in warnings)
 
 
-def test_vignette_style_warns_but_roundness_does_not():
-    """PostCropVignetteStyle isn't rendered (Adobe's 3 blend modes aren't
-    reproduced), but Roundness and HighlightContrast are actually applied
-    by apply_vignette() now -- they must not be flagged as dropped."""
+def test_vignette_style_and_roundness_never_warn():
+    """PostCropVignetteStyle, Roundness, and HighlightContrast are all
+    actually applied by apply_vignette() now -- none should be flagged as
+    dropped."""
     attrs = (
         'crs:PostCropVignetteStyle="1" crs:PostCropVignetteRoundness="30" '
         'crs:PostCropVignetteHighlightContrast="40"'
     )
     warnings = parse_xmp_bytes(make_xmp(attrs=attrs), "Vignette Style").get("_import_warnings", [])
-    assert any("PostCropVignetteStyle" in w for w in warnings)
+    assert not any("PostCropVignetteStyle" in w for w in warnings)
     assert not any("PostCropVignetteRoundness" in w for w in warnings)
     assert not any("PostCropVignetteHighlightContrast" in w for w in warnings)

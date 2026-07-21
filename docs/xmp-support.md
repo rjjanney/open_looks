@@ -20,7 +20,8 @@ below is about `.xmp` only.
 Global tone and color controls, applied by `develop_engine.py`:
 
 - **Basic tone**: `Exposure2012`, `Contrast2012`, `Blacks2012`,
-  `Whites2012`, `Shadows2012`, `Highlights2012`, `Clarity2012`
+  `Whites2012`, `Shadows2012`, `Highlights2012`, `Texture`, `Clarity2012`,
+  `Dehaze`
 - **Parametric tone curve**: `ParametricShadows/Darks/Lights/Highlights`
   and the three split points
 - **Point tone curve**: `ToneCurvePV2012` plus the per-channel
@@ -34,7 +35,8 @@ Global tone and color controls, applied by `develop_engine.py`:
 - **Split toning**: shadow/highlight hue, saturation, balance
 - **Grain**: amount, size, frequency
 - **Vignette**: `PostCropVignetteAmount`, `Midpoint`, `Feather`,
-  `Roundness`, `HighlightContrast` (legacy `VignetteAmount` too)
+  `Roundness`, `HighlightContrast`, `Style` (Highlight Priority / Color
+  Priority / Paint Overlay -- legacy `VignetteAmount` too)
 - **Sharpening**: amount, radius
 - **A `.cube` LUT layered into the same recipe** (`_lut3d`)
 
@@ -48,6 +50,16 @@ above reproduces the *shape* of what the real slider does, driven by the
 preset's real values -- it is not a bit-exact reimplementation of ACR.
 See the module docstring in `develop_engine.py`.
 
+`Dehaze`, `Texture`, and the vignette's darkening strength were fit
+against real Lightroom Classic exports (isolated single-slider presets
+rendered from the same source photo) rather than guessed from
+Adobe's UI description -- per-pixel error against those references runs
+roughly 1-6% for Dehaze, under 1% for Texture, and 1-2% for vignette
+darkening. Highlight Priority vs. Color Priority vignette style is still
+a best-effort approximation from Adobe's documented behavior, not
+measurement -- the reference photo's corners were too dark/desaturated
+to actually distinguish the two in practice.
+
 ## Parsed but not rendered (warned when non-default)
 
 These are captured into the recipe dict (nothing crashes), but
@@ -56,14 +68,9 @@ Lightroom exports) write these on *every* preset with a fixed no-op
 value regardless of whether it's actually used, so a warning only fires
 when a preset sets one away from that default:
 
-- `Dehaze`, `Texture`
 - `Temperature`, `Tint` (white balance)
 - `ColorGrade{Shadow,Midtone,Highlight,Global}{Hue,Sat,Lum}` (3-way/4-way
   color grading)
-- `PostCropVignetteStyle` -- Adobe's 3 distinct blend modes (Highlight
-  Priority / Color Priority / Paint Overlay) aren't reproduced; the
-  vignette still renders via Amount/Midpoint/Feather/Roundness/
-  HighlightContrast, just always with the same blend approach
 
 ## Unsupported structures (warned when present)
 

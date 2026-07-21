@@ -145,6 +145,48 @@ def apply_lut(channel: np.ndarray, lut: np.ndarray) -> np.ndarray:
 # basic tone controls
 # ---------------------------------------------------------------------------
 
+TEXTURE_REFERENCE_WIDTH = 640  # the width Texture's blur radius was tuned against (see below)
+TEXTURE_BLUR_RADIUS = 1.6
+TEXTURE_STRENGTH = 0.4
+
+# Dehaze gamma/saturation coefficients below were fit against real Lightroom
+# Classic exports (isolated Dehaze -100/-50/+50/+100 presets vs. a plain
+# reset render of the same photo): binning by input luminance and fitting
+# out = in**gamma matched Lightroom's actual per-level tone curve to within
+# ~0.5-3% luminance across the whole range. Positive/negative use separate
+# quadratics because Lightroom's response is visibly asymmetric -- negative
+# Dehaze (adding haze) departs from gamma=1 faster than positive Dehaze
+# (removing haze) does. sat_boost is an additional saturation multiplier on
+# top of gamma's own (much weaker) implicit saturation shift, needed because
+# per-channel gamma alone undershot Lightroom's real saturation change at
+# every level tested.
+DEHAZE_POS_GAMMA = (0.273, 0.278)   # gamma = 1 + a*d + b*d**2, d = dehaze/100
+DEHAZE_NEG_GAMMA = (0.861, 0.218)   # gamma = 1 - a*e + b*e**2, e = -dehaze/100
+DEHAZE_POS_SAT = (0.271, 0.014)     # sat_boost = a*d + b*d**2
+DEHAZE_NEG_SAT = (0.057, 0.33)      # sat_boost = -(a*e + b*e**2)
+
+
+def apply_dehaze(img: np.ndarray, dehaze: float) -> np.ndarray:
+    d = dehaze / 100.0
+    if d >= 0:
+        a, b = DEHAZE_POS_GAMMA
+        gamma = 1.0 + a * d + b * d * d
+        a, b = DEHAZE_POS_SAT
+        sat_boost = a * d + b * d * d
+    else:
+        e = -d
+        a, b = DEHAZE_NEG_GAMMA
+        gamma = 1.0 - a * e + b * e * e
+        a, b = DEHAZE_NEG_SAT
+        sat_boost = -(a * e + b * e * e)
+
+    img = np.clip(img, 0.0, 1.0) ** gamma
+    if sat_boost:
+        lum = luminance(img)[..., None]
+        img = lum + (img - lum) * (1.0 + sat_boost)
+    return img
+
+
 def apply_basic_tone(img: np.ndarray, recipe: dict) -> np.ndarray:
     exposure = recipe.get("Exposure2012", 0.0)
     if exposure:
@@ -171,12 +213,24 @@ def apply_basic_tone(img: np.ndarray, recipe: dict) -> np.ndarray:
         mask = np.clip((lum - 0.5) / 0.5, 0, 1) ** 1.5
         img = img + highlights * 0.4 * mask
 
+    texture = recipe.get("Texture", 0) / 100.0
+    if texture:
+        lum = luminance(img)
+        radius = max(TEXTURE_BLUR_RADIUS * (img.shape[1] / TEXTURE_REFERENCE_WIDTH), 0.15)
+        fine_blur = gaussian_blur(lum, radius=radius)
+        fine_detail = (lum - fine_blur)[..., None]
+        img = img + fine_detail * texture * TEXTURE_STRENGTH
+
     clarity = recipe.get("Clarity2012", 0) / 100.0
     if clarity:
         lum = luminance(img)
         blurred = gaussian_blur(lum, radius=25)
         detail = (lum - blurred)[..., None]
         img = img + detail * clarity * 1.2
+
+    dehaze = recipe.get("Dehaze", 0)
+    if dehaze:
+        img = apply_dehaze(img, dehaze)
 
     return np.clip(img, 0, 1)
 
@@ -347,23 +401,66 @@ def _vignette_distance(xx: np.ndarray, yy: np.ndarray, cx: float, cy: float, rou
     return dist / corner
 
 
+# Calibrated against real Lightroom Classic exports at Amount=-80 (Midpoint
+# 50, Feather 50, Roundness 0): binning pixels by `falloff` and comparing
+# their actual corner/base brightness ratio showed the previous flat
+# "amount * falloff * 0.7" model badly undershot the real effect (predicted
+# corners ~3x brighter than Lightroom's, e.g. 62/255 vs. an actual 18/255).
+# The real curve is `floor + (1-floor)*(1-falloff)**shape`, and critically
+# `floor` (the fully-darkened corner brightness) drops much faster than
+# Amount's own percentage would suggest -- Amount=-80 already lands within
+# ~5% of full black, not 80%. There is no equivalent Lightroom export at a
+# positive Amount, so the brightening branch below keeps the original
+# unvalidated linear approximation rather than extrapolating this curve into
+# untested territory.
+VIGNETTE_FLOOR_CURVE = 1.8      # how fast the corner floor -> 0 as |Amount| -> 100
+VIGNETTE_FALLOFF_SHAPE = 2.0    # shape of the brightness transition across the falloff band
+VIGNETTE_PAINT_STRENGTH = 0.94  # Paint Overlay darkens measurably less than the other styles at the same Amount
+
+
 def apply_vignette(img: np.ndarray, recipe: dict) -> np.ndarray:
     amount = recipe.get("PostCropVignetteAmount", 0) or recipe.get("VignetteAmount", 0)
-    amount = amount / 100.0
-    if not amount:
+    amount_frac = amount / 100.0
+    if not amount_frac:
         return img
     midpoint = recipe.get("PostCropVignetteMidpoint", 50) / 100.0
     feather = max(recipe.get("PostCropVignetteFeather", 50), 1) / 100.0
     roundness = np.clip(recipe.get("PostCropVignetteRoundness", 0) / 100.0, -1.0, 1.0)
     highlight_contrast = recipe.get("PostCropVignetteHighlightContrast", 0) / 100.0
+    # 1=Highlight Priority, 2=Color Priority, 3=Paint Overlay; Adobe's own
+    # default when a vignette has no explicit style is Highlight Priority.
+    style = recipe.get("PostCropVignetteStyle", 0) or 1
 
     h, w = img.shape[:2]
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
     cy, cx = h / 2.0, w / 2.0
     dist = _vignette_distance(xx, yy, cx, cy, roundness)
     falloff = np.clip((dist - midpoint) / max(feather, 1e-3), 0, 1)
-    factor = (1.0 + amount * falloff * 0.7).astype(np.float32)
+
+    if amount_frac < 0:
+        strength = -amount_frac
+        if style == 3:
+            strength *= VIGNETTE_PAINT_STRENGTH
+        floor = (1.0 - strength) ** VIGNETTE_FLOOR_CURVE
+        factor = floor + (1.0 - floor) * (1.0 - falloff) ** VIGNETTE_FALLOFF_SHAPE
+    else:
+        factor = 1.0 + amount_frac * falloff * 0.7
+    factor = factor.astype(np.float32)
     out = img * factor[..., None]
+
+    # Highlight/Color Priority differentiation below is best-effort, per
+    # Adobe's documented behavior rather than measurement -- the reference
+    # photo's corners were too dark/desaturated to actually distinguish the
+    # two styles (they produced byte-identical output there).
+    if style == 1 and amount_frac < 0:
+        # Highlight Priority: protect already-bright pixels from being
+        # darkened as hard inside the vignette.
+        bright = np.clip((luminance(img) - 0.7) / 0.3, 0, 1)[..., None]
+        out = out + (img - out) * bright * falloff[..., None] * 0.3
+    elif style == 2:
+        # Color Priority: resist the vignetted region flattening toward gray.
+        lum = luminance(out)[..., None]
+        out = lum + (out - lum) * (1.0 + falloff[..., None] * 0.25)
 
     if highlight_contrast:
         # Extra contrast confined to the vignetted falloff region, so

@@ -39,14 +39,12 @@ def _coerce(value: str) -> Any:
 # crs: fields that real preset exports (Lightroom, ON1, PK Edits, ...)
 # write on every single preset with a fixed no-op value regardless of
 # whether that preset actually touches the control -- e.g. ON1's whole
-# Signature Collection pack writes Dehaze="0" on all 60 presets, including
-# ones that obviously never used haze removal. develop_engine.py doesn't
+# Signature Collection pack writes Temperature="0" on all 60 presets, even
+# ones that obviously never touched white balance. develop_engine.py doesn't
 # render any of these, but warning about every one of them on every import
 # would just be noise; only flag a preset that set one away from its
 # no-op default.
 _IGNORED_SCALAR_DEFAULTS: dict[str, float] = {
-    "Dehaze": 0,
-    "Texture": 0,
     "Temperature": 0,
     "Tint": 0,
     "ColorGradeShadowHue": 0,
@@ -61,7 +59,6 @@ _IGNORED_SCALAR_DEFAULTS: dict[str, float] = {
     "ColorGradeGlobalHue": 0,
     "ColorGradeGlobalSat": 0,
     "ColorGradeGlobalLum": 0,
-    "PostCropVignetteStyle": 0,
 }
 
 # Nested crs: fields holding local/masked adjustments (brush masks, linear
