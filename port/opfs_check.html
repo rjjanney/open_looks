@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>opfs_storage.js smoke check</title></head>
+<body>
+<pre id="out">running...</pre>
+<script type="module">
+import { opfsStorage } from "./opfs_storage.js";
+
+const out = document.getElementById("out");
+function log(msg) {
+  out.textContent += "\n" + msg;
+  console.log(msg);
+}
+
+async function run() {
+  try {
+    // clean slate
+    await opfsStorage.deleteFile("check/hello.txt");
+
+    let missing = await opfsStorage.readText("check/hello.txt");
+    if (missing !== null) throw new Error(`expected null for missing file, got ${missing}`);
+    log("PASS: missing file reads as null");
+
+    await opfsStorage.writeText("check/hello.txt", "hi there");
+    const text = await opfsStorage.readText("check/hello.txt");
+    if (text !== "hi there") throw new Error(`readText mismatch: ${text}`);
+    log("PASS: writeText/readText round trip (nested dir auto-created)");
+
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    await opfsStorage.writeBytes("check/data.bin", bytes);
+    const readBack = await opfsStorage.readBytes("check/data.bin");
+    if (readBack.length !== 4 || readBack[2] !== 3) throw new Error("readBytes mismatch");
+    log("PASS: writeBytes/readBytes round trip");
+
+    const files = await opfsStorage.listFiles("check");
+    if (!files.includes("hello.txt") || !files.includes("data.bin")) {
+      throw new Error(`listFiles missing entries: ${files}`);
+    }
+    log("PASS: listFiles sees both files");
+
+    const removed = await opfsStorage.deleteFile("check/hello.txt");
+    if (!removed) throw new Error("deleteFile returned false for an existing file");
+    const afterDelete = await opfsStorage.readText("check/hello.txt");
+    if (afterDelete !== null) throw new Error("file still readable after delete");
+    log("PASS: deleteFile removes the file");
+
+    await opfsStorage.deleteFile("check/data.bin"); // cleanup
+
+    log("\nALL CHECKS PASSED");
+  } catch (e) {
+    log("FAIL: " + e.message);
+    console.error(e);
+  }
+}
+run();
+</script>
+</body>
+</html>

@@ -6,3 +6,6 @@ presets/user/
 dist/
 build/
 .pytest_cache/
+port/fixtures.json
+port/xmp_fixtures.json
+node_modules/

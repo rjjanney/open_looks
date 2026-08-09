@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "dependencies": {
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@xmldom/xmldom": "^0.9.10"
+  }
+}

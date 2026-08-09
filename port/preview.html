@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>open_looks JS engine -- end-to-end preview</title>
+<style>
+  body { font-family: sans-serif; background: #222; color: #eee; }
+  .controls { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+  canvas { max-width: 46%; border: 1px solid #555; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  h3 { margin: 4px 0; }
+  select, input { font-size: 0.9rem; }
+  #status { color: #aaa; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<p>Full <code>applyRecipe()</code> pipeline, running client-side against real bundled
+presets (<code>presets/builtin/fujixweekly/*.json</code>) -- the actual end-to-end port,
+not the HSV/blur-only sanity check the earlier version of this page was.</p>
+<div class="controls">
+  <input type="file" id="file" accept="image/*">
+  <select id="look" disabled><option>Loading looks&hellip;</option></select>
+  <span id="status"></span>
+</div>
+<div class="row">
+  <div><h3>original</h3><canvas id="original"></canvas></div>
+  <div><h3 id="resultLabel">result</h3><canvas id="result"></canvas></div>
+</div>
+<script type="module">
+import { applyRecipe } from "./engine.js";
+import { imageDataToRgb, rgbToImageData } from "./canvas_glue.js";
+import { loadBundledPresets } from "./bundled_presets.js";
+
+// Kept modest so a full pipeline (grain/blur-heavy stages included) stays
+// fast in-browser -- matches the same spirit as api.py's own PREVIEW_WIDTH.
+const MAX_WIDTH = 640;
+
+const el = {
+  file: document.getElementById("file"),
+  look: document.getElementById("look"),
+  status: document.getElementById("status"),
+  original: document.getElementById("original"),
+  result: document.getElementById("result"),
+  resultLabel: document.getElementById("resultLabel"),
+};
+
+let looks = { Original: null };
+let sourceBitmap = null;
+
+async function loadLooks() {
+  el.status.textContent = "Loading looks...";
+  Object.assign(looks, await loadBundledPresets("../presets/builtin"));
+  el.look.innerHTML = "";
+  for (const name of Object.keys(looks)) {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    el.look.appendChild(opt);
+  }
+  el.look.disabled = false;
+  el.status.textContent = `${Object.keys(looks).length - 1} looks loaded`;
+}
+
+function drawToCanvas(canvas, bitmap) {
+  const scale = Math.min(1, MAX_WIDTH / bitmap.width);
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  return ctx.getImageData(0, 0, w, h);
+}
+
+async function onFileChange() {
+  const file = el.file.files[0];
+  if (!file) return;
+  sourceBitmap = await createImageBitmap(file);
+  drawToCanvas(el.original, sourceBitmap);
+  render();
+}
+
+function render() {
+  if (!sourceBitmap) return;
+  const recipe = looks[el.look.value];
+  el.resultLabel.textContent = el.look.value || "result";
+
+  const srcImageData = drawToCanvas(el.result, sourceBitmap);
+  if (!recipe) return; // "Original" -- leave the untouched draw as-is
+
+  const t0 = performance.now();
+  const { rgb, alpha, width, height } = imageDataToRgb(srcImageData);
+  const outRgb = applyRecipe(rgb, width, height, recipe, 1);
+  const outImageData = rgbToImageData(outRgb, width, height, alpha);
+  el.result.getContext("2d").putImageData(outImageData, 0, 0);
+  el.status.textContent = `rendered "${el.look.value}" in ${(performance.now() - t0).toFixed(0)}ms`;
+}
+
+el.file.addEventListener("change", onFileChange);
+el.look.addEventListener("change", render);
+loadLooks();
+</script>
+</body>
+</html>
