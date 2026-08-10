@@ -78,6 +78,26 @@ Linux additionally needs the system WebKit2GTK packages listed in
 `requirements.txt` for the desktop app specifically; the CLI has no GUI
 dependency at all.)
 
+## Web version
+
+The same engine also runs in a browser, no install required:
+**https://rjjanney.github.io/open_looks/**
+
+It's a from-scratch JS port of `scripts/develop_engine.py` -- runs
+entirely client-side (nothing you open ever leaves your browser, same
+offline spirit as the desktop app, just delivered as a page instead of a
+binary). It covers the same core loop as the desktop app: pick photos,
+preview every look side by side, apply and download. Some things (a few
+performance edges on very large photos, mobile packaging) are still
+rougher than the desktop app.
+
+This lives on the [`cross-platform-port`](../../tree/cross-platform-port)
+branch, not `main` -- it's real and working, but still actively
+developed and not yet merged. See
+[`docs/cross-platform-port.md`](../../blob/cross-platform-port/docs/cross-platform-port.md)
+for the full technical writeup (architecture, what's ported, what isn't
+yet) -- that file only exists on that branch, not here.
+
 ## Importing and managing looks
 
 In the desktop app: **Import Look...** opens a file picker (multi-select
