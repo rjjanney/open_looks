@@ -495,10 +495,41 @@ app with tagged releases, and this is still a prototype. `git status` on
       this is environment/session flakiness in the browser-automation
       setup used for testing, not a reproducible bug.
 
+## Live on GitHub Pages
+
+13. **Done.** The app is now live at **https://rjjanney.github.io/open_looks/**
+    -- a real, public URL, not just something running on one machine.
+    `.github/workflows/deploy-web.yml` builds `port/` with Vite and
+    publishes `port/dist` via GitHub's official Pages Actions
+    (`upload-pages-artifact` + `deploy-pages`), triggered on pushes to
+    `cross-platform-port` (move the trigger to `main` if/when that branch
+    gets merged -- otherwise Pages keeps deploying from a branch nobody's
+    looking at) plus manual `workflow_dispatch`.
+
+    Enabling this needed two repo-level API calls beyond just adding the
+    workflow file, neither obvious from the workflow YAML alone:
+    - `gh api repos/.../pages -X POST -f build_type=workflow` -- Pages
+      isn't on by default; without this the `deploy-pages` action fails
+      outright.
+    - The auto-created `github-pages` deployment environment defaults to
+      only allowing deploys **from `main`** -- a branch that isn't `main`
+      gets silently rejected ("not allowed to deploy... due to
+      environment protection rules") even though the build itself
+      succeeds. Fixed with
+      `gh api repos/.../environments/github-pages/deployment-branch-policies
+      -X POST -f name=cross-platform-port` to add it to the allowlist.
+
+    Verified against the actual live URL (not just `localhost`) in a real
+    browser: loads, initializes, fetches bundled presets over the real
+    internet, no console errors. Cost: **$0** -- GitHub Pages' free tier
+    covers a static site like this comfortably; the only real future cost
+    would be an optional custom domain (~$10-15/year), not hosting itself.
+
 **What's left is scope, not open questions**: mobile packaging
 (Capacitor/Tauri, a second storage-adapter backend for `registry.js`),
 performance work if the Web-Worker gap noted above turns out to matter in
 practice, and ordinary polish (loading states, error surfacing, the
 bundled-presets manifest becoming a real build-time-generated list via
 `import.meta.glob` instead of hand-maintained, a PWA manifest + service
-worker for installability).
+worker for installability, a desktop wrapper via Tauri/Electron for a
+true zero-server downloadable like the existing Win/Mac/Linux builds).
