@@ -6,14 +6,15 @@
 // app/web/app.js -- that one is the real desktop app's frontend, still
 // shipping, and must not be touched by this prototype.
 //
-// ponytail: applyToFolder() processes photos one at a time on the main
-// thread (applyRecipe's per-photo work is synchronous) -- a big folder
-// will visibly freeze the UI for the duration. Upgrade path: move
-// applyRecipe into a Web Worker if that turns out to matter in practice;
-// not worth the complexity speculatively.
+// applyRecipe() itself runs in render.worker.js, not here -- a
+// full-resolution photo can take many seconds of computation (confirmed:
+// a real ~19MP photo, not the small preview, measured well into the tens
+// of seconds for a grain/split-tone-heavy recipe), and running that on
+// this thread would freeze the whole page for the duration. The worker
+// doesn't make the computation faster, just keeps the UI responsive
+// while it happens -- see the comment at the top of render.worker.js.
 "use strict";
 
-import { applyRecipe } from "./engine.js";
 import { imageDataToRgb, rgbToImageData } from "./canvas_glue.js";
 import { opfsStorage } from "./opfs_storage.js";
 import * as registry from "./registry.js";
@@ -86,6 +87,51 @@ function setActionStatus(text, isError) {
   el.actionStatus.style.color = isError ? "var(--danger)" : "var(--text-dim)";
 }
 
+// -- render worker -----------------------------------------------------
+
+const renderWorker = new Worker(new URL("./render.worker.js", import.meta.url), { type: "module" });
+let nextRenderId = 0;
+const pendingRenders = new Map(); // id -> {resolve, reject}
+
+renderWorker.onmessage = (e) => {
+  const { id, outRgb } = e.data;
+  const pending = pendingRenders.get(id);
+  if (!pending) return;
+  pendingRenders.delete(id);
+  pending.resolve(outRgb);
+};
+
+renderWorker.onerror = (e) => {
+  // A worker-level error doesn't identify which in-flight request caused
+  // it -- reject everything pending rather than leave callers awaiting
+  // forever.
+  for (const { reject } of pendingRenders.values()) reject(e.message || "render worker error");
+  pendingRenders.clear();
+};
+
+function applyRecipeInWorker(rgb, width, height, recipe, seed) {
+  return new Promise((resolve, reject) => {
+    const id = nextRenderId++;
+    pendingRenders.set(id, { resolve, reject });
+    renderWorker.postMessage({ id, rgb, width, height, recipe, seed }, [rgb.buffer]);
+  });
+}
+
+// A status message that ticks up with elapsed seconds -- for a
+// single-photo apply, there's no real "N% done" to report (applyRecipe is
+// one opaque call, not a resumable loop), and a fake progress bar would
+// be dishonest. An honest elapsed-time counter is the reassurance that
+// actually matters: proof it's still working, not proof of how much is
+// left. Returns a function that stops the ticker.
+function startProgressTicker(baseMessage) {
+  const t0 = performance.now();
+  setActionStatus(`${baseMessage} 0s`);
+  const interval = setInterval(() => {
+    setActionStatus(`${baseMessage} ${Math.round((performance.now() - t0) / 1000)}s`);
+  }, 500);
+  return () => clearInterval(interval);
+}
+
 function showMainPreview(uri) {
   el.mainPreview.src = uri;
   el.mainPreview.hidden = false;
@@ -136,9 +182,9 @@ async function fileToDataUri(file, maxWidth, quality, rotationDeg = 0) {
   return canvas.toDataURL("image/jpeg", quality);
 }
 
-function renderRecipeToCanvas(srcImageData, recipe, seed) {
+async function renderRecipeToCanvas(srcImageData, recipe, seed) {
   const { rgb, alpha, width, height } = imageDataToRgb(srcImageData);
-  const outRgb = applyRecipe(rgb, width, height, recipe, seed);
+  const outRgb = await applyRecipeInWorker(rgb, width, height, recipe, seed);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -262,14 +308,11 @@ async function renderPreviews(filename) {
 
   const previews = { Original: canvas.toDataURL("image/jpeg", PREVIEW_QUALITY) };
   for (const [lookName, recipe] of Object.entries(activeRegistry)) {
-    const outCanvas = renderRecipeToCanvas(imageData, recipe, seed);
+    // await on the worker round-trip is itself a real yield point -- the
+    // page stays responsive across all these without needing an
+    // artificial extra one.
+    const outCanvas = await renderRecipeToCanvas(imageData, recipe, seed);
     previews[lookName] = outCanvas.toDataURL("image/jpeg", PREVIEW_QUALITY);
-    // Confirmed by testing: rendering a full look grid (a dozen-plus
-    // looks) back-to-back with zero yield points blocks the main thread
-    // long enough that the tab visibly stops responding -- this yield
-    // doesn't reduce total render time, but lets the spinner animate and
-    // keeps the page responsive instead of looking hung.
-    await new Promise((r) => setTimeout(r, 0));
   }
 
   previewCache.set(filename, previews);
@@ -324,17 +367,18 @@ function updateActionBar() {
 async function applyToPhoto() {
   if (!selectedLook || !activePhoto) return;
   el.applyPhotoBtn.disabled = true;
-  setActionStatus("Rendering full-resolution photo…");
+  const stopTicker = startProgressTicker("Processing image…");
   try {
     const t0 = performance.now();
     const file = currentFiles.get(activePhoto);
     const { imageData } = await fileToCanvas(file, null, rotations.get(activePhoto) || 0); // full res
-    const outCanvas = renderRecipeToCanvas(imageData, activeRegistry[selectedLook], grainSeedFor(activePhoto));
+    const outCanvas = await renderRecipeToCanvas(imageData, activeRegistry[selectedLook], grainSeedFor(activePhoto));
     await downloadResult(outCanvas, activePhoto, { quality: 0.92 });
     setActionStatus(`Downloaded in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
   } catch (e) {
     setActionStatus(e.message || "Failed", true);
   } finally {
+    stopTicker();
     el.applyPhotoBtn.disabled = false;
   }
 }
@@ -342,15 +386,20 @@ async function applyToPhoto() {
 async function applyToFolder() {
   if (!selectedLook) return;
   el.applyFolderBtn.disabled = true;
-  setActionStatus(`Applying "${selectedLook}" to ${currentFiles.size} photo(s)… this may take a while`);
   try {
     const t0 = performance.now();
     const recipe = activeRegistry[selectedLook];
     const entries = [];
+    const total = currentFiles.size;
+    let i = 0;
     for (const [filename, file] of currentFiles) {
+      i++;
+      setActionStatus(`Processing photo ${i}/${total}: ${filename}…`);
       const { imageData } = await fileToCanvas(file, null, rotations.get(filename) || 0);
-      entries.push({ filename, canvas: renderRecipeToCanvas(imageData, recipe, grainSeedFor(filename)) });
+      const canvas = await renderRecipeToCanvas(imageData, recipe, grainSeedFor(filename));
+      entries.push({ filename, canvas });
     }
+    setActionStatus(`Zipping ${entries.length} photo(s)…`);
     await downloadResultsAsZip(entries, `${registry.safeName(selectedLook)}.zip`, { quality: 0.92 });
     setActionStatus(`${entries.length} photos in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
   } catch (e) {
