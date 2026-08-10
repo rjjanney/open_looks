@@ -14,9 +14,10 @@
     <h1>Look Preview</h1>
   </div>
   <div class="topbar-folder">
-    <span id="folderPath" class="folder-path">No folder selected</span>
+    <span id="folderPath" class="folder-path">No photos selected</span>
     <button id="manageLooksBtn" class="btn btn-secondary">Manage Looks&hellip;</button>
     <button id="importLookBtn" class="btn btn-secondary">Import Look&hellip;</button>
+    <button id="choosePhotosBtn" class="btn btn-secondary">Choose Photos&hellip;</button>
     <button id="chooseFolderBtn" class="btn btn-primary">Choose Folder&hellip;</button>
   </div>
 </header>
@@ -25,11 +26,16 @@
   <aside class="filmstrip-panel">
     <h2 class="panel-label">Photos</h2>
     <div id="filmstrip" class="filmstrip-list">
-      <p class="empty-hint">Choose a folder to see photos here.</p>
+      <p class="empty-hint">Choose photos to see them here.</p>
     </div>
   </aside>
 
   <main class="main-panel">
+    <div class="photo-tools">
+      <button id="rotateLeftBtn" class="btn btn-secondary" disabled title="Rotate the selected photo -90&deg;">Rotate -90&deg;</button>
+      <button id="rotate180Btn" class="btn btn-secondary" disabled title="Rotate the selected photo 180&deg;">Rotate 180&deg;</button>
+      <button id="rotateRightBtn" class="btn btn-secondary" disabled title="Rotate the selected photo +90&deg;">Rotate +90&deg;</button>
+    </div>
     <div id="mainPreviewWrap" class="main-preview-wrap">
       <img id="mainPreview" class="main-preview" alt="" hidden />
       <p id="mainPreviewHint" class="empty-hint">Select a photo from the left to preview all looks.</p>
@@ -52,7 +58,7 @@
   </div>
   <div class="actionbar-buttons">
     <button id="applyPhotoBtn" class="btn btn-secondary" disabled>Apply to This Photo</button>
-    <button id="applyFolderBtn" class="btn btn-accent" disabled>Apply to Whole Folder</button>
+    <button id="applyFolderBtn" class="btn btn-accent" disabled>Apply to All Photos</button>
   </div>
 </footer>
 

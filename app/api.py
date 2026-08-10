@@ -47,7 +47,7 @@ from registry import (  # noqa: E402
     save_order,
     PRESETS_DIR,
 )
-from apply_look import run_jobs, safe_dirname, grain_seed_for  # noqa: E402
+from apply_look import run_jobs, safe_dirname, grain_seed_for, rotate_image, reset_exif_orientation  # noqa: E402
 from develop_engine import apply_recipe  # noqa: E402
 from look_captions import CAPTIONS  # noqa: E402
 
@@ -96,8 +96,8 @@ class Api:
         self._registry: dict = {}
         self._look_order: list[str] = []
         self._reload_registry()
-        # (folder, filename) -> {look_name: preview_data_uri}
-        self._preview_cache: dict[tuple[str, str], dict[str, str]] = {}
+        # (path, rotation) -> {look_name: preview_data_uri}
+        self._preview_cache: dict[tuple[str, int], dict[str, str]] = {}
 
     def _reload_registry(self) -> None:
         self._registry = build_registry()
@@ -159,23 +159,68 @@ class Api:
                 thumb = _to_data_uri(img, THUMB_WIDTH, THUMB_QUALITY)
             except Exception:
                 continue
-            photos.append({"name": name, "thumb": thumb})
+            photos.append({"name": name, "path": str(p / name), "thumb": thumb})
+        return {"photos": photos}
+
+    def pick_photos(self) -> dict:
+        """Individual photos instead of a whole folder -- unlike
+        pick_folder(), these can come from anywhere, so downstream methods
+        key everything off the full path rather than a shared folder."""
+        import webview
+
+        if self._window is None:
+            return {"paths": [], "error": "window not ready"}
+        result = self._window.create_file_dialog(
+            webview.FileDialog.OPEN,
+            allow_multiple=True,
+            file_types=("Image files (*.jpg;*.jpeg;*.png)", "All files (*.*)"),
+        )
+        return {"paths": list(result) if result else []}
+
+    def get_thumbnail(self, path: str, rotation: int = 0) -> dict:
+        """Single-photo thumbnail, rotated -- used to refresh one filmstrip
+        entry after a rotate without re-listing everything."""
+        p = Path(path)
+        if not p.is_file():
+            return {"error": f"not found: {path}"}
+        try:
+            img = Image.open(p)
+        except Exception as e:
+            return {"error": str(e)}
+        img = rotate_image(img, rotation)
+        return {"thumb": _to_data_uri(img, THUMB_WIDTH, THUMB_QUALITY)}
+
+    def list_specific_photos(self, paths: list[str]) -> dict:
+        """Thumbnails for an explicit list of photo paths -- the
+        pick_photos() equivalent of list_photos()'s folder scan."""
+        photos = []
+        for path_str in paths:
+            p = Path(path_str)
+            if p.suffix.lower() not in IMAGE_EXTS:
+                continue
+            try:
+                img = Image.open(p)
+                thumb = _to_data_uri(img, THUMB_WIDTH, THUMB_QUALITY)
+            except Exception:
+                continue
+            photos.append({"name": p.name, "path": str(p), "thumb": thumb})
         return {"photos": photos}
 
     # -- preview --------------------------------------------------------
 
-    def render_previews(self, folder: str, filename: str) -> dict:
-        key = (folder, filename)
+    def render_previews(self, path: str, rotation: int = 0) -> dict:
+        key = (path, rotation)
         if key in self._preview_cache:
             return {"previews": self._preview_cache[key], "cached": True}
 
-        path = Path(folder) / filename
-        if not path.is_file():
+        p = Path(path)
+        if not p.is_file():
             return {"error": f"not found: {path}"}
         try:
-            source = Image.open(path)
+            source = Image.open(p)
         except Exception as e:
             return {"error": str(e)}
+        source = rotate_image(source, rotation)
 
         if source.width > PREVIEW_WIDTH:
             h = int(source.height * (PREVIEW_WIDTH / source.width))
@@ -183,7 +228,7 @@ class Api:
         else:
             small_source = source.convert("RGB")
 
-        seed = grain_seed_for(filename)
+        seed = grain_seed_for(p.name)
         previews: dict[str, str] = {
             "Original": _to_data_uri(small_source, PREVIEW_WIDTH, PREVIEW_QUALITY)
         }
@@ -196,21 +241,27 @@ class Api:
 
     # -- apply ------------------------------------------------------------
 
-    def apply_to_photo(self, folder: str, filename: str, look_name: str) -> dict:
+    def apply_to_photo(self, path: str, look_name: str, rotation: int = 0) -> dict:
         if look_name not in self._registry:
             return {"ok": False, "error": f"unknown look: {look_name!r}"}
-        in_path = Path(folder) / filename
+        in_path = Path(path)
         if not in_path.is_file():
             return {"ok": False, "error": f"not found: {in_path}"}
 
-        out_dir = Path(folder) / "Output" / safe_dirname(look_name)
+        # Output goes next to wherever this photo actually lives, not a
+        # single shared folder -- individually-picked photos (pick_photos())
+        # aren't guaranteed to share one, unlike a whole-folder pick.
+        out_dir = in_path.parent / "Output" / safe_dirname(look_name)
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_path = out_dir / filename
+        out_path = out_dir / in_path.name
 
         t0 = time.monotonic()
         img = Image.open(in_path)
         exif = img.info.get("exif")
-        seed = grain_seed_for(filename)
+        img = rotate_image(img, rotation)
+        if rotation % 360 != 0:
+            exif = reset_exif_orientation(exif)
+        seed = grain_seed_for(in_path.name)
         result = apply_recipe(img, self._registry[look_name], grain_seed=seed)
         save_kwargs = {"quality": 92}
         if exif:
@@ -220,25 +271,34 @@ class Api:
 
         return {"ok": True, "output_path": str(out_path), "elapsed": elapsed}
 
-    def apply_to_folder(self, folder: str, look_name: str) -> dict:
+    def apply_to_photos(self, paths: list[str], look_name: str, rotations: dict[str, int]) -> dict:
+        """Batch equivalent of apply_to_photo() -- an explicit photo list
+        rather than a folder rescan, so it works the same whether that list
+        came from pick_folder()+list_photos() or pick_photos() directly.
+        rotations is keyed by path, same shape multiple callers already
+        build for render_previews()/apply_to_photo()."""
         if look_name not in self._registry:
             return {"ok": False, "error": f"unknown look: {look_name!r}"}
-        input_dir = Path(folder)
-        photos = sorted(f for f in input_dir.iterdir() if f.suffix.lower() in IMAGE_EXTS)
+        photos = [Path(p) for p in paths if Path(p).suffix.lower() in IMAGE_EXTS]
         if not photos:
-            return {"ok": False, "error": "no .jpg/.png photos found in that folder"}
+            return {"ok": False, "error": "no .jpg/.png photos given"}
 
-        out_dir = input_dir / "Output" / safe_dirname(look_name)
-        out_dir.mkdir(parents=True, exist_ok=True)
         recipe = self._registry[look_name]
-        jobs = [(look_name, recipe, str(p), str(out_dir / p.name), 92) for p in photos]
+        out_dirs = set()
+        jobs = []
+        for p in photos:
+            out_dir = p.parent / "Output" / safe_dirname(look_name)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_dirs.add(str(out_dir))
+            rotation = rotations.get(str(p), 0)
+            jobs.append((look_name, recipe, str(p), str(out_dir / p.name), 92, rotation))
 
         workers = max(1, (os.cpu_count() or 4) // 2)
         t0 = time.monotonic()
         run_jobs(jobs, workers=workers)
         elapsed = time.monotonic() - t0
 
-        return {"ok": True, "count": len(jobs), "elapsed": elapsed, "output_dir": str(out_dir)}
+        return {"ok": True, "count": len(jobs), "elapsed": elapsed, "output_dirs": sorted(out_dirs)}
 
     # -- import / manage ----------------------------------------------------
 

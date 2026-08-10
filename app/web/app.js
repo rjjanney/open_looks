@@ -2,9 +2,13 @@
   "use strict";
 
   let currentFolder = null;
-  let photos = [];
+  let photos = []; // {name, path, thumb}
+  let rotations = new Map(); // path -> degrees (0/90/180/270), missing = 0
   let lookMeta = [];
-  let activePhoto = null;
+  let activePhoto = null; // a full path, not just a filename -- individually
+  // picked photos (choosePhotos()) aren't guaranteed to share one folder,
+  // so filenames alone aren't a safe unique key the way they were when
+  // every photo necessarily came from the same chosen folder.
   let selectedLook = null;
   let previewsForActivePhoto = null;
   let manageLookMeta = [];       // all looks incl. hidden, for the Manage Looks modal
@@ -13,7 +17,11 @@
   const el = {
     folderPath: document.getElementById("folderPath"),
     chooseFolderBtn: document.getElementById("chooseFolderBtn"),
+    choosePhotosBtn: document.getElementById("choosePhotosBtn"),
     filmstrip: document.getElementById("filmstrip"),
+    rotateLeftBtn: document.getElementById("rotateLeftBtn"),
+    rotate180Btn: document.getElementById("rotate180Btn"),
+    rotateRightBtn: document.getElementById("rotateRightBtn"),
     mainPreview: document.getElementById("mainPreview"),
     mainPreviewHint: document.getElementById("mainPreviewHint"),
     lookGrid: document.getElementById("lookGrid"),
@@ -49,49 +57,92 @@
     currentFolder = res.folder;
     el.folderPath.textContent = currentFolder;
     el.folderPath.title = currentFolder;
-    await loadPhotos();
+    el.filmstrip.innerHTML = '<p class="empty-hint">Loading photos&hellip;</p>';
+    await setPhotos(await window.pywebview.api.list_photos(currentFolder));
   }
 
-  async function loadPhotos() {
+  async function choosePhotos() {
+    const res = await window.pywebview.api.pick_photos();
+    if (!res || !res.paths || !res.paths.length) return;
+    currentFolder = null;
+    el.folderPath.textContent = `${res.paths.length} photo(s) selected`;
+    el.folderPath.title = "";
     el.filmstrip.innerHTML = '<p class="empty-hint">Loading photos&hellip;</p>';
-    const res = await window.pywebview.api.list_photos(currentFolder);
+    await setPhotos(await window.pywebview.api.list_specific_photos(res.paths));
+  }
+
+  // Shared by both pickers above -- replaces the whole working set (not an
+  // add-to-existing-set merge), same behavior either way.
+  async function setPhotos(res) {
+    rotations = new Map();
+    activePhoto = null;
+    selectedLook = null;
+    previewsForActivePhoto = null;
+    updateActionBar();
+
     if (res.error) {
+      photos = [];
       el.filmstrip.innerHTML = `<p class="empty-hint">${res.error}</p>`;
       return;
     }
     photos = res.photos;
     if (!photos.length) {
-      el.filmstrip.innerHTML = '<p class="empty-hint">No .jpg/.png photos found in this folder.</p>';
+      el.filmstrip.innerHTML = '<p class="empty-hint">No .jpg/.png photos found.</p>';
       return;
     }
+    renderFilmstrip();
+  }
+
+  function renderFilmstrip() {
     el.filmstrip.innerHTML = "";
     for (const photo of photos) {
       const item = document.createElement("div");
       item.className = "filmstrip-item";
-      item.dataset.name = photo.name;
+      item.dataset.path = photo.path;
       item.innerHTML = `<img src="${photo.thumb}" alt="${photo.name}" loading="lazy"><span class="fname">${photo.name}</span>`;
-      item.addEventListener("click", () => selectPhoto(photo.name));
+      item.addEventListener("click", () => selectPhoto(photo.path));
       el.filmstrip.appendChild(item);
     }
   }
 
+  async function refreshFilmstripThumbnail(path) {
+    const res = await window.pywebview.api.get_thumbnail(path, rotations.get(path) || 0);
+    if (res.error) return;
+    for (const item of document.querySelectorAll(".filmstrip-item")) {
+      if (item.dataset.path === path) {
+        item.querySelector("img").src = res.thumb;
+        break;
+      }
+    }
+  }
+
+  // deltaDeg: -90/180/+90, applied cumulatively to whatever rotation the
+  // active photo already has (so -90 then 180 lands on +90 total, etc.).
+  async function rotateActivePhoto(deltaDeg) {
+    if (!activePhoto) return;
+    const current = rotations.get(activePhoto) || 0;
+    rotations.set(activePhoto, (((current + deltaDeg) % 360) + 360) % 360);
+    await refreshFilmstripThumbnail(activePhoto);
+    await selectPhoto(activePhoto);
+  }
+
   // -- photo selection / preview rendering --------------------------------
 
-  async function selectPhoto(filename) {
-    activePhoto = filename;
+  async function selectPhoto(path) {
+    activePhoto = path;
     selectedLook = null;
     previewsForActivePhoto = null;
     updateActionBar();
 
     document.querySelectorAll(".filmstrip-item").forEach((n) => {
-      n.classList.toggle("active", n.dataset.name === filename);
+      n.classList.toggle("active", n.dataset.path === path);
     });
 
     el.lookGrid.innerHTML = "";
     el.lookGridStatusText.textContent = "Rendering previews…";
     el.lookGridStatus.hidden = false;
 
-    const res = await window.pywebview.api.render_previews(currentFolder, filename);
+    const res = await window.pywebview.api.render_previews(path, rotations.get(path) || 0);
     el.lookGridStatus.hidden = true;
 
     if (res.error) {
@@ -138,6 +189,9 @@
     el.selectedLookLabel.textContent = selectedLook ? selectedLook : "No look selected";
     el.applyPhotoBtn.disabled = !applicable;
     el.applyFolderBtn.disabled = !applicable;
+    el.rotateLeftBtn.disabled = !activePhoto;
+    el.rotate180Btn.disabled = !activePhoto;
+    el.rotateRightBtn.disabled = !activePhoto;
     setActionStatus("");
   }
 
@@ -147,7 +201,7 @@
     if (!selectedLook || !activePhoto) return;
     el.applyPhotoBtn.disabled = true;
     setActionStatus("Applying to this photo…");
-    const res = await window.pywebview.api.apply_to_photo(currentFolder, activePhoto, selectedLook);
+    const res = await window.pywebview.api.apply_to_photo(activePhoto, selectedLook, rotations.get(activePhoto) || 0);
     el.applyPhotoBtn.disabled = false;
     if (res.ok) {
       setActionStatus(`Saved in ${res.elapsed.toFixed(1)}s → ${res.output_path}`);
@@ -159,11 +213,15 @@
   async function applyToFolder() {
     if (!selectedLook) return;
     el.applyFolderBtn.disabled = true;
-    setActionStatus(`Applying "${selectedLook}" to the whole folder… this may take a while`);
-    const res = await window.pywebview.api.apply_to_folder(currentFolder, selectedLook);
+    setActionStatus(`Applying "${selectedLook}" to ${photos.length} photo(s)… this may take a while`);
+    const paths = photos.map((p) => p.path);
+    const rotationsObj = {}; // pywebview's JS<->Python bridge JSON-serializes
+    for (const [path, deg] of rotations) rotationsObj[path] = deg; // args -- a Map wouldn't survive that, a plain object does
+    const res = await window.pywebview.api.apply_to_photos(paths, selectedLook, rotationsObj);
     el.applyFolderBtn.disabled = false;
     if (res.ok) {
-      setActionStatus(`${res.count} photos in ${res.elapsed.toFixed(1)}s → ${res.output_dir}`);
+      const dest = res.output_dirs.length === 1 ? res.output_dirs[0] : `${res.output_dirs.length} folders`;
+      setActionStatus(`${res.count} photos in ${res.elapsed.toFixed(1)}s → ${dest}`);
     } else {
       setActionStatus(res.error || "Failed", true);
     }
@@ -360,6 +418,10 @@
 
   async function init() {
     el.chooseFolderBtn.addEventListener("click", chooseFolder);
+    el.choosePhotosBtn.addEventListener("click", choosePhotos);
+    el.rotateLeftBtn.addEventListener("click", () => rotateActivePhoto(-90));
+    el.rotate180Btn.addEventListener("click", () => rotateActivePhoto(180));
+    el.rotateRightBtn.addEventListener("click", () => rotateActivePhoto(90));
     el.applyPhotoBtn.addEventListener("click", applyToPhoto);
     document.addEventListener("keydown", onKeyDown);
     el.applyFolderBtn.addEventListener("click", applyToFolder);

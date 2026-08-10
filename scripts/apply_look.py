@@ -43,17 +43,49 @@ def grain_seed_for(filename: str) -> int:
     return zlib.crc32(filename.encode("utf-8")) & 0xFFFFFFFF
 
 
+# EXIF orientation tag ID (0x0112 / 274) -- a camera-set value here tells a
+# viewer to rotate the pixels on display. rotate_image() below rotates the
+# actual pixel data instead, so a preserved EXIF blob with its original
+# orientation would make viewers rotate our already-rotated pixels AGAIN.
+# reset_exif_orientation() resets it to 1 (normal/no rotation) whenever we've
+# manually rotated, so the two don't stack.
+_EXIF_ORIENTATION_TAG = 0x0112
+
+
+def rotate_image(img: Image.Image, degrees: int) -> Image.Image:
+    """Rotate by a multiple of 90 degrees, clockwise. No-op at 0 (returns
+    the same object, not a copy). PIL's own rotate() is counter-clockwise
+    for positive angles -- negated here to match the clockwise convention
+    used throughout the app (matches port/app.js's fileToCanvas rotation
+    too; both were verified against the same marker-pixel test)."""
+    if degrees % 360 == 0:
+        return img
+    return img.rotate(-degrees, expand=True)
+
+
+def reset_exif_orientation(exif_bytes: bytes | None) -> bytes | None:
+    if not exif_bytes:
+        return exif_bytes
+    exif = Image.Exif()
+    exif.load(exif_bytes)
+    exif[_EXIF_ORIENTATION_TAG] = 1
+    return exif.tobytes()
+
+
 def _worker_init() -> None:
     cv2.setNumThreads(1)
 
 
-def _render_job(job: tuple[str, dict, str, str, int]) -> str:
-    look_name, recipe, in_path_str, out_path_str, quality = job
+def _render_job(job: tuple[str, dict, str, str, int, int]) -> str:
+    look_name, recipe, in_path_str, out_path_str, quality, rotation = job
     in_path = Path(in_path_str)
     out_path = Path(out_path_str)
 
     img = Image.open(in_path)
     exif = img.info.get("exif")
+    img = rotate_image(img, rotation)
+    if rotation % 360 != 0:
+        exif = reset_exif_orientation(exif)
     seed = grain_seed_for(in_path.name)
     result = apply_recipe(img, recipe, grain_seed=seed)
     save_kwargs = {"quality": quality}
@@ -74,7 +106,9 @@ def collect_jobs(looks: dict[str, dict], input_dir: Path, output_dir: Path, qual
         out_dir = output_dir / safe_dirname(look_name)
         out_dir.mkdir(parents=True, exist_ok=True)
         for path in images:
-            jobs.append((look_name, recipe, str(path), str(out_dir / path.name), quality))
+            # 0 -- the CLI batch path has no rotation concept, only the
+            # interactive app (app/api.py) does.
+            jobs.append((look_name, recipe, str(path), str(out_dir / path.name), quality, 0))
     return jobs
 
 
