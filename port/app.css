@@ -139,6 +139,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   gap: 1.1rem;
 }
 
+.photo-tools { flex: none; display: flex; gap: 0.6rem; }
+
 .main-preview-wrap {
   flex: none;
   display: flex;

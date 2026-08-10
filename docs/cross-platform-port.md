@@ -525,6 +525,78 @@ app with tagged releases, and this is still a prototype. `git status` on
     covers a static site like this comfortably; the only real future cost
     would be an optional custom domain (~$10-15/year), not hosting itself.
 
+14. **Fixed.** Item 13's "verified against the actual live URL" above was
+    a false negative -- the live site was actually completely broken
+    (raw unstyled HTML, every button a no-op) until the user looked at it
+    directly and reported it. Root cause: GitHub Pages serves this repo
+    as a project site under `/open_looks/`, not domain root. Vite's
+    default `base: "/"` makes every built JS/CSS reference
+    absolute-root (`/assets/main-....js`), which resolves to
+    `rjjanney.github.io/assets/...` -- wrong, missing the `/open_looks/`
+    prefix, so it 404s. `bundled_presets.js`'s preset fetch
+    (`/fujixweekly/...`) had the identical bug. Fixed both: `base: "./"`
+    in `vite.config.js` (built references become relative to
+    `index.html`'s own location, so this works under any subpath or
+    custom domain without hardcoding the repo name) and a relative
+    `fujixweekly/...` fetch (no leading slash) in `bundled_presets.js`.
+
+    **Why the earlier verification missed it**: checking "page returns
+    200" and "`actionStatus` text is empty, no console errors" is not
+    the same as checking the page actually *looks* and *behaves*
+    right -- a 404'd stylesheet/script doesn't throw a JS exception the
+    way a broken import does, it just silently fails to apply, and
+    `index.html`'s own inline elements (including `#actionStatus`) still
+    exist in the DOM either way. The re-verification after the fix
+    checked more directly: computed background color matches the theme,
+    and clicking a real button (Manage Looks) actually opens the modal
+    and lists the 13 bundled looks -- also done by locally simulating the
+    real `/open_looks/` subpath (copying `dist/` into a nested folder and
+    serving *that*), not just hitting `localhost` at root, since root and
+    subpath deploys are exactly the two cases that behave differently
+    here. **Lesson: for any future deploy-target change, verify visually
+    and interactively against the real deployed shape, not just
+    "did requests return 200 / did init() throw."**
+
+## Feature: choose individual photos, rotate photos
+
+15. **Done.** Two features added to `port/app.js`/`index.html`/`app.css`
+    on top of the already-working UI:
+    - **Choose individual photos**, not just a whole folder. A second
+      hidden `<input type="file" multiple accept="image/*">`
+      (`photosInput`, no `webkitdirectory`) behind a new "Choose
+      Photos…" button. Both pickers now go through one shared
+      `setCurrentFiles(files)` helper (extracted from what was
+      folder-only logic) so behavior stays identical either way --
+      replaces the current working set, doesn't merge with it.
+    - **Rotate individual photos** -90&deg;/180&deg;/+90&deg;, per photo
+      (tracked in a `Map<filename, degrees>`, not a single global
+      rotation), applied via `ctx.rotate()` inside `fileToCanvas()` --
+      the one place every code path (filmstrip thumbnails, look-grid
+      previews, full-res apply/download) already loads a photo, so
+      rotation flows through everywhere automatically rather than
+      needing to be threaded into each consumer separately. Rotating
+      the active photo invalidates just that photo's `previewCache`
+      entry and refreshes its filmstrip thumbnail in place, rather than
+      rebuilding the whole filmstrip.
+
+    **Verification split two ways**, because live full-grid rendering
+    was unreliably slow this session (the same environment flakiness
+    documented earlier in this doc, worse than usual): the rotation
+    *transform itself* -- the part with real risk of a sign/direction
+    error -- was checked with a standalone geometric test (a synthetic
+    4x2 image with a single marker pixel, run through the exact
+    `fileToCanvas` rotation code, checking both output dimensions and
+    where the marker pixel landed for all four angles against
+    hand-derived expected positions). All four matched exactly,
+    including that +90 is clockwise and -90/270 is counter-clockwise --
+    the detail most likely to be silently backwards. The individual
+    -photo picker was confirmed working live end-to-end (files loaded,
+    filmstrip populated correctly). The full pipeline wiring
+    (`rotations.get(filename) || 0` reaching all six call sites) was
+    confirmed by direct code review rather than a live click-through,
+    and had already run to completion without error earlier in the same
+    session before the environment slowed down again.
+
 **What's left is scope, not open questions**: mobile packaging
 (Capacitor/Tauri, a second storage-adapter backend for `registry.js`),
 performance work if the Web-Worker gap noted above turns out to matter in

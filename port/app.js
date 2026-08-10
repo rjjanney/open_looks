@@ -43,6 +43,7 @@ function grainSeedFor(filename) {
 }
 
 let currentFiles = new Map(); // filename -> File
+let rotations = new Map(); // filename -> degrees (0/90/180/270), missing = 0
 let bundledPresets = {};
 let builtinNames = new Set();
 let activeRegistry = {}; // active (non-hidden) looks, name -> recipe
@@ -57,7 +58,12 @@ const el = {
   folderPath: document.getElementById("folderPath"),
   chooseFolderBtn: document.getElementById("chooseFolderBtn"),
   folderInput: document.getElementById("folderInput"),
+  choosePhotosBtn: document.getElementById("choosePhotosBtn"),
+  photosInput: document.getElementById("photosInput"),
   filmstrip: document.getElementById("filmstrip"),
+  rotateLeftBtn: document.getElementById("rotateLeftBtn"),
+  rotate180Btn: document.getElementById("rotate180Btn"),
+  rotateRightBtn: document.getElementById("rotateRightBtn"),
   mainPreview: document.getElementById("mainPreview"),
   mainPreviewHint: document.getElementById("mainPreviewHint"),
   lookGrid: document.getElementById("lookGrid"),
@@ -93,30 +99,41 @@ async function reloadRegistry() {
 
 // -- canvas helpers -------------------------------------------------------
 
-async function fileToDataUri(file, maxWidth, quality) {
+// Draws `file` into a canvas at up to maxWidth (no upscaling), rotated by
+// rotationDeg (0/90/180/270, clockwise), and returns both the canvas and
+// its ImageData, since callers need one or the other (or both --
+// applyToPhoto/applyToFolder need the pixels, not a data URI). A 90/270
+// rotation swaps width and height, so maxWidth caps the POST-rotation
+// width, matching what the user actually sees.
+async function fileToCanvas(file, maxWidth, rotationDeg = 0) {
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, maxWidth / bitmap.width);
-  const w = Math.round(bitmap.width * scale), h = Math.round(bitmap.height * scale);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
-  return canvas.toDataURL("image/jpeg", quality);
-}
+  const rotation = ((rotationDeg % 360) + 360) % 360;
+  const swapped = rotation === 90 || rotation === 270;
 
-// Draws `file` into a canvas at up to maxWidth (no upscaling) and returns
-// both the canvas and its ImageData, since callers need one or the other
-// (or both -- applyToPhoto/applyToFolder need the pixels, not a data URI).
-async function fileToCanvas(file, maxWidth) {
-  const bitmap = await createImageBitmap(file);
-  const scale = maxWidth ? Math.min(1, maxWidth / bitmap.width) : 1;
-  const w = Math.round(bitmap.width * scale), h = Math.round(bitmap.height * scale);
+  const rotatedW = swapped ? bitmap.height : bitmap.width;
+  const rotatedH = swapped ? bitmap.width : bitmap.height;
+  const scale = maxWidth ? Math.min(1, maxWidth / rotatedW) : 1;
+  const w = Math.round(rotatedW * scale);
+  const h = Math.round(rotatedH * scale);
+
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(bitmap, 0, 0, w, h);
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate((rotation * Math.PI) / 180);
+  // Draw at the PRE-rotation (scaled) dimensions -- the rotate() above is
+  // what actually places it correctly into the (possibly swapped) canvas.
+  const drawW = swapped ? h : w;
+  const drawH = swapped ? w : h;
+  ctx.drawImage(bitmap, -drawW / 2, -drawH / 2, drawW, drawH);
+
   return { canvas, imageData: ctx.getImageData(0, 0, w, h) };
+}
+
+async function fileToDataUri(file, maxWidth, quality, rotationDeg = 0) {
+  const { canvas } = await fileToCanvas(file, maxWidth, rotationDeg);
+  return canvas.toDataURL("image/jpeg", quality);
 }
 
 function renderRecipeToCanvas(srcImageData, recipe, seed) {
@@ -131,6 +148,21 @@ function renderRecipeToCanvas(srcImageData, recipe, seed) {
 
 // -- folder / filmstrip ----------------------------------------------------
 
+// Shared by both pickers below -- replaces the whole working set (not an
+// add-to-existing-set merge), same as the old folder-only behavior, just
+// now reachable two ways.
+async function setCurrentFiles(files) {
+  currentFiles = new Map(files.map((f) => [f.name, f]));
+  rotations = new Map();
+  activePhoto = null;
+  selectedLook = null;
+  previewCache.clear();
+  el.folderPath.textContent = currentFiles.size ? `${currentFiles.size} photo(s) loaded` : "No photos found";
+  el.folderPath.title = "";
+  updateActionBar();
+  await loadPhotos();
+}
+
 async function onFolderInputChange() {
   // webkitdirectory hands back every file under the chosen folder,
   // recursively -- Python's list_photos only scans the top level
@@ -142,24 +174,25 @@ async function onFolderInputChange() {
     const isImage = IMAGE_EXTS.some((ext) => f.name.toLowerCase().endsWith(ext));
     return isTopLevel && isImage;
   });
-  currentFiles = new Map(files.map((f) => [f.name, f]));
-  activePhoto = null;
-  selectedLook = null;
-  previewCache.clear();
-  el.folderPath.textContent = currentFiles.size ? `${currentFiles.size} photo(s) loaded` : "No photos found";
-  el.folderPath.title = "";
-  updateActionBar();
-  await loadPhotos();
+  await setCurrentFiles(files);
+}
+
+async function onPhotosInputChange() {
+  const files = Array.from(el.photosInput.files).filter((f) =>
+    IMAGE_EXTS.some((ext) => f.name.toLowerCase().endsWith(ext))
+  );
+  await setCurrentFiles(files);
+  el.photosInput.value = ""; // allow re-picking the same filename(s) later
 }
 
 async function loadPhotos() {
   el.filmstrip.innerHTML = "";
   if (!currentFiles.size) {
-    el.filmstrip.innerHTML = '<p class="empty-hint">No .jpg/.png photos found in this folder.</p>';
+    el.filmstrip.innerHTML = '<p class="empty-hint">No .jpg/.png photos found.</p>';
     return;
   }
   for (const [name, file] of currentFiles) {
-    const thumb = await fileToDataUri(file, THUMB_WIDTH, THUMB_QUALITY);
+    const thumb = await fileToDataUri(file, THUMB_WIDTH, THUMB_QUALITY, rotations.get(name) || 0);
     const item = document.createElement("div");
     item.className = "filmstrip-item";
     item.dataset.name = name;
@@ -167,6 +200,30 @@ async function loadPhotos() {
     item.addEventListener("click", () => selectPhoto(name));
     el.filmstrip.appendChild(item);
   }
+}
+
+async function refreshFilmstripThumbnail(filename) {
+  const file = currentFiles.get(filename);
+  if (!file) return;
+  const thumb = await fileToDataUri(file, THUMB_WIDTH, THUMB_QUALITY, rotations.get(filename) || 0);
+  for (const item of document.querySelectorAll(".filmstrip-item")) {
+    if (item.dataset.name === filename) {
+      item.querySelector("img").src = thumb;
+      break;
+    }
+  }
+}
+
+// deltaDeg: -90/180/+90, applied cumulatively to whatever rotation the
+// active photo already has (so -90 then 180 lands on +90 total, etc.) --
+// matches how rotate buttons behave in real photo tools.
+async function rotateActivePhoto(deltaDeg) {
+  if (!activePhoto) return;
+  const current = rotations.get(activePhoto) || 0;
+  rotations.set(activePhoto, (((current + deltaDeg) % 360) + 360) % 360);
+  previewCache.delete(activePhoto);
+  await refreshFilmstripThumbnail(activePhoto);
+  await selectPhoto(activePhoto);
 }
 
 // -- photo selection / preview rendering --------------------------------
@@ -200,7 +257,7 @@ async function renderPreviews(filename) {
   if (previewCache.has(filename)) return previewCache.get(filename);
 
   const file = currentFiles.get(filename);
-  const { canvas, imageData } = await fileToCanvas(file, PREVIEW_WIDTH);
+  const { canvas, imageData } = await fileToCanvas(file, PREVIEW_WIDTH, rotations.get(filename) || 0);
   const seed = grainSeedFor(filename);
 
   const previews = { Original: canvas.toDataURL("image/jpeg", PREVIEW_QUALITY) };
@@ -256,6 +313,9 @@ function updateActionBar() {
   el.selectedLookLabel.textContent = selectedLook ? selectedLook : "No look selected";
   el.applyPhotoBtn.disabled = !applicable;
   el.applyFolderBtn.disabled = !applicable;
+  el.rotateLeftBtn.disabled = !activePhoto;
+  el.rotate180Btn.disabled = !activePhoto;
+  el.rotateRightBtn.disabled = !activePhoto;
   setActionStatus("");
 }
 
@@ -268,7 +328,7 @@ async function applyToPhoto() {
   try {
     const t0 = performance.now();
     const file = currentFiles.get(activePhoto);
-    const { imageData } = await fileToCanvas(file, null); // full res
+    const { imageData } = await fileToCanvas(file, null, rotations.get(activePhoto) || 0); // full res
     const outCanvas = renderRecipeToCanvas(imageData, activeRegistry[selectedLook], grainSeedFor(activePhoto));
     await downloadResult(outCanvas, activePhoto, { quality: 0.92 });
     setActionStatus(`Downloaded in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
@@ -288,7 +348,7 @@ async function applyToFolder() {
     const recipe = activeRegistry[selectedLook];
     const entries = [];
     for (const [filename, file] of currentFiles) {
-      const { imageData } = await fileToCanvas(file, null);
+      const { imageData } = await fileToCanvas(file, null, rotations.get(filename) || 0);
       entries.push({ filename, canvas: renderRecipeToCanvas(imageData, recipe, grainSeedFor(filename)) });
     }
     await downloadResultsAsZip(entries, `${registry.safeName(selectedLook)}.zip`, { quality: 0.92 });
@@ -494,6 +554,11 @@ function closeManageModal() {
 async function init() {
   el.chooseFolderBtn.addEventListener("click", () => el.folderInput.click());
   el.folderInput.addEventListener("change", onFolderInputChange);
+  el.choosePhotosBtn.addEventListener("click", () => el.photosInput.click());
+  el.photosInput.addEventListener("change", onPhotosInputChange);
+  el.rotateLeftBtn.addEventListener("click", () => rotateActivePhoto(-90));
+  el.rotate180Btn.addEventListener("click", () => rotateActivePhoto(180));
+  el.rotateRightBtn.addEventListener("click", () => rotateActivePhoto(90));
   el.applyPhotoBtn.addEventListener("click", applyToPhoto);
   el.applyFolderBtn.addEventListener("click", applyToFolder);
   el.importLookBtn.addEventListener("click", () => el.importInput.click());
