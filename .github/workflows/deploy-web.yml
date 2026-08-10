@@ -1,0 +1,61 @@
+name: Deploy web app
+
+# Builds port/ (the browser port of the engine, see docs/cross-platform-port.md)
+# with Vite and publishes it to GitHub Pages. Static-only -- the app does all
+# photo processing client-side, so this is just handing out files, no backend.
+#
+# Triggers on cross-platform-port since that's where this work currently
+# lives, not main -- move this to `branches: [main]` if/when that branch
+# gets merged, otherwise Pages will keep deploying from a branch nobody's
+# actively looking at.
+on:
+  push:
+    branches: [cross-platform-port]
+    paths:
+      - "port/**"
+      - "presets/builtin/**"
+      - ".github/workflows/deploy-web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deployment at a time; let an in-flight one finish rather
+# than cancel it mid-upload.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: port
+        run: npm ci
+
+      - name: Build
+        working-directory: port
+        run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: port/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
