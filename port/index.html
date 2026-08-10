@@ -5,14 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>open_looks (web)</title>
 <link rel="stylesheet" href="app.css" />
-<!-- Bare specifiers ("fflate") resolve via node_modules in Node, but
-     browsers can't do that natively without a build step -- this import
-     map is the zero-bundler fix, pointing "fflate" at its actual
-     browser-targeted ESM build so xmp_importer.js/export_glue.js/
-     registry.js's `import ... from "fflate"` works unmodified. -->
-<script type="importmap">
-{ "imports": { "fflate": "./node_modules/fflate/esm/browser.js" } }
-</script>
 </head>
 <body>
 

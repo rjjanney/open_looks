@@ -49,7 +49,7 @@ let sourceBitmap = null;
 
 async function loadLooks() {
   el.status.textContent = "Loading looks...";
-  Object.assign(looks, await loadBundledPresets("../presets/builtin"));
+  Object.assign(looks, await loadBundledPresets());
   el.look.innerHTML = "";
   for (const name of Object.keys(looks)) {
     const opt = document.createElement("option");

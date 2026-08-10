@@ -16,9 +16,11 @@ export const BUNDLED_PRESET_FILES = [
   "FXW_The_Rockwell_Velvia.json",
 ];
 
-// baseUrl: directory containing fujixweekly/*.json, relative to the
-// caller (e.g. "../presets/builtin" from port/*.html).
-export async function loadBundledPresets(baseUrl) {
+// baseUrl: directory containing fujixweekly/*.json. Defaults to "" (site
+// root) -- vite.config.js's publicDir serves presets/builtin's contents
+// at the root, so the default is correct for both `vite dev`/`vite
+// build` output and needs no override there.
+export async function loadBundledPresets(baseUrl = "") {
   const presets = {};
   for (const filename of BUNDLED_PRESET_FILES) {
     try {

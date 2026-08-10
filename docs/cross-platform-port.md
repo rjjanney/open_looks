@@ -445,9 +445,60 @@ across `port/*.test.mjs`.
 
 Every architecture decision the port needed has now been made and
 implemented, and the whole stack has been verified against real Python
-output, a real browser, or both. What's left is scope, not open
-questions: mobile packaging (Capacitor/Tauri, a second storage-adapter
-backend for `registry.js`), performance work if the Web-Worker gap above
-turns out to matter in practice, and ordinary polish (loading states,
-error surfacing, the bundled-presets manifest becoming a real build-time
-step instead of a hand-maintained list).
+output, a real browser, or both.
+
+## Git
+
+This work lives on branch `cross-platform-port` (created off `main`),
+deliberately not merged or pushed -- `main` is the real shipping desktop
+app with tagged releases, and this is still a prototype. `git status` on
+`main` is unaffected by any of it.
+
+## Web build: Vite
+
+12. **Done.** Added Vite (`port/vite.config.js`) as the real dev
+    server/bundler, replacing the `python -m http.server` + hand-written
+    `<script type="importmap">` setup from earlier steps:
+    - Bare specifiers (`"fflate"`) now resolve automatically -- Vite's
+      whole job -- so the import map hack in `index.html` is gone
+      entirely, not just relocated.
+    - `publicDir` points at `presets/builtin` specifically, **not**
+      `presets/` as a whole -- `presets/user/` holds the desktop app's
+      real local per-machine imports (gitignored) and must never end up
+      copied verbatim into a web build. Its contents serve at the site
+      root, so `bundled_presets.js`'s `loadBundledPresets()` now defaults
+      to fetching from `/fujixweekly/...` instead of taking a
+      `../presets/builtin`-style relative path from the caller.
+    - Three HTML entry points configured (`index.html`, `preview.html`,
+      `opfs_check.html`) so all three pages that existed before still
+      build/serve under the one tool.
+    - `npm run dev` (dev server), `npm run build` (production `dist/`),
+      `npm run preview` (serve that build to check it), `npm test`
+      (unchanged -- Vite is completely orthogonal to the
+      `node --test port/*.test.mjs` suite, which resolves modules via
+      plain Node/`node_modules`, not Vite).
+    - Verified both dev and production-build modes in a real browser:
+      full look grid renders correctly in dev; the *minified, bundled*
+      production output (`vite preview`) loads and initializes cleanly
+      with no console errors -- confirms the bundling itself doesn't
+      break anything, not just that the dev server works.
+    - `vite build` output: 21 modules transformed, ~13KB gzipped main
+      bundle, built in ~250ms. `dist/` is already covered by the
+      existing root `.gitignore` (`dist/` was already listed for the
+      Python packaging output).
+    - Hit the same kind of intermittent multi-second browser stall noted
+      earlier in this doc, this time visible as Vite's HMR client
+      logging "server connection lost. Polling for restart..." -- the
+      dev server process itself never errored or restarted (checked its
+      log directly), so this was the browser-side WebSocket blipping,
+      not a real Vite or code problem. Reinforces the earlier conclusion:
+      this is environment/session flakiness in the browser-automation
+      setup used for testing, not a reproducible bug.
+
+**What's left is scope, not open questions**: mobile packaging
+(Capacitor/Tauri, a second storage-adapter backend for `registry.js`),
+performance work if the Web-Worker gap noted above turns out to matter in
+practice, and ordinary polish (loading states, error surfacing, the
+bundled-presets manifest becoming a real build-time-generated list via
+`import.meta.glob` instead of hand-maintained, a PWA manifest + service
+worker for installability).

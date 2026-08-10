@@ -506,7 +506,7 @@ async function init() {
   document.addEventListener("keydown", onKeyDown);
 
   setActionStatus("Loading looks…");
-  bundledPresets = await loadBundledPresets("../presets/builtin");
+  bundledPresets = await loadBundledPresets();
   builtinNames = new Set([...Object.keys(FUJI_RECIPES), ...Object.keys(bundledPresets)]);
   await reloadRegistry();
   setActionStatus("");
